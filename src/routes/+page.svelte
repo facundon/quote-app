@@ -1,2 +1,8 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<h1>Presupuestos de Laboratorio</h1>
+<nav>
+	<ul>
+		<li><a href="/categories">Categorías</a></li>
+		<li><a href="/studies">Estudios</a></li>
+		<li><a href="/quotes">Presupuestos</a></li>
+	</ul>
+</nav>
