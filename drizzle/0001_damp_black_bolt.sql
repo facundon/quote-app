@@ -1,0 +1,1 @@
+ALTER TABLE `discount` ADD `category_id` integer NOT NULL REFERENCES category(id);

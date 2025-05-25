@@ -33,6 +33,9 @@ export const quote_study = sqliteTable('quote_study', {
 
 export const discount = sqliteTable('discount', {
 	id: integer('id').primaryKey(),
-	min_quantity: integer('min_quantity').notNull(), // minimum number of studies to apply discount
+	category_id: integer('category_id')
+		.references(() => category.id)
+		.notNull(),
+	min_quantity: integer('min_quantity').notNull(), // minimum number of studies in this category to apply discount
 	percentage: real('percentage').notNull() // discount percentage (e.g. 10 for 10%)
 });
