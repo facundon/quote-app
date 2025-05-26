@@ -1,5 +1,13 @@
 <script lang="ts">
-	import type { Category } from './types';
+	type CategoryDiscount = {
+		category_id: number;
+		min_quantity: number | null;
+		percentage: number;
+		applied: boolean;
+		amount: number;
+		category_name: string;
+	};
+
 	let {
 		total,
 		categoryDiscounts,
@@ -7,7 +15,7 @@
 		finalTotal
 	}: {
 		total: number;
-		categoryDiscounts: any[];
+		categoryDiscounts: CategoryDiscount[];
 		formatNumber: (n: number) => string;
 		finalTotal: number;
 	} = $props();
@@ -27,8 +35,8 @@
 			</div>
 			<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
 		</div>
-		{#if categoryDiscounts.some((d: any) => d.applied)}
-			{#each categoryDiscounts as d: any}
+		{#if categoryDiscounts.some((d: CategoryDiscount) => d.applied)}
+			{#each categoryDiscounts as d: CategoryDiscount (d.category_id)}
 				{#if d.applied}
 					<div class="mb-1 w-full">
 						<div class="flex w-full items-center gap-2">

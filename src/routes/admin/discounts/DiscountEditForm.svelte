@@ -21,7 +21,7 @@
 	let error = $state('');
 
 	function handleEnhance() {
-		return async ({ result }: { result: any }) => {
+		return async ({ result }: { result: { type: string; data?: { error?: string } } }) => {
 			if (result.type === 'success' && onEdited) {
 				await onEdited();
 			} else if (result.type === 'failure') {
@@ -47,7 +47,7 @@
 				bind:value={categoryId}
 			>
 				<option value="">Seleccionar...</option>
-				{#each categories as cat}
+				{#each categories as cat (cat.id)}
 					<option value={String(cat.id)}>{cat.name}</option>
 				{/each}
 			</select>

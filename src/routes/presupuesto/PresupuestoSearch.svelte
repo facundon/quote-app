@@ -22,9 +22,12 @@
 </script>
 
 <div class="mx-auto mb-6 max-w-xl">
-	<label class="mb-1 block text-sm font-semibold text-blue-900">Buscar estudio</label>
+	<label for="search-input" class="mb-1 block text-sm font-semibold text-blue-900"
+		>Buscar estudio</label
+	>
 	<div class="relative flex flex-row flex-wrap items-center gap-3">
 		<input
+			id="search-input"
 			type="text"
 			placeholder="Buscar estudio..."
 			bind:value={search}
@@ -48,18 +51,26 @@
 			>
 				{#each data.studies.filter((s: Study) => s.name
 						.toLowerCase()
-						.includes(search.toLowerCase())) as s: Study, i}
-					<li
-						class="cursor-pointer px-3 py-2 text-sm hover:bg-blue-100 {highlightedIndex === i
-							? 'bg-blue-100'
-							: ''}"
-						onmousedown={() => selectSuggestion(s)}
-						onmouseover={() => {
-							highlightedIndex = i;
-							selectedStudy = s;
-						}}
-					>
-						{s.name}
+						.includes(search.toLowerCase())) as s: Study, i (s.id)}
+					<li>
+						<button
+							type="button"
+							class="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-blue-100 {highlightedIndex ===
+							i
+								? 'bg-blue-100'
+								: ''}"
+							onmousedown={() => selectSuggestion(s)}
+							onmouseover={() => {
+								highlightedIndex = i;
+								selectedStudy = s;
+							}}
+							onfocus={() => {
+								highlightedIndex = i;
+								selectedStudy = s;
+							}}
+						>
+							{s.name}
+						</button>
 					</li>
 				{/each}
 				{#if data.studies.filter((s: Study) => s.name

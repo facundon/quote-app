@@ -16,14 +16,14 @@
 	let error = $state('');
 </script>
 
-{#each categories as cat}
+{#each categories as cat (cat.id)}
 	{#if studies.filter((s) => s.category_id === cat.id).length > 0}
 		<div class="mt-6">
 			<h4 class="mb-2 border-b border-blue-200 pb-1 text-base font-bold text-blue-800">
 				{cat.name}
 			</h4>
 			<ul class="space-y-2">
-				{#each studies.filter((s) => s.category_id === cat.id) as study}
+				{#each studies.filter((s) => s.category_id === cat.id) as study (study.id)}
 					<li class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 shadow-sm">
 						<span class="text-sm font-semibold text-slate-800">{study.name}</span>
 						<div class="flex items-center gap-2">

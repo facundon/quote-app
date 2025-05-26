@@ -28,7 +28,7 @@
 	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{error}</div>
 {/if}
 <ul class="space-y-2">
-	{#each categories as cat}
+	{#each categories as cat (cat.id)}
 		<li class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 shadow-sm">
 			<div class="flex items-baseline gap-2">
 				<span class="text-sm font-semibold text-slate-800">{cat.name}</span>

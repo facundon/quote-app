@@ -15,16 +15,12 @@
 		categories: Category[];
 	} = $props();
 
-	let studies = $state<Study[]>([...initialStudies]);
+	let studies = $derived(initialStudies);
 	let name = $state('');
 	let categoryId = $state('');
 	let editId = $state<number | null>(null);
 	let editName = $state('');
 	let editCategoryId = $state('');
-
-	$effect(() => {
-		studies = [...initialStudies];
-	});
 
 	function startEdit(study: Study) {
 		editId = study.id;

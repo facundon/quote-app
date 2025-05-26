@@ -1,5 +1,13 @@
 <script lang="ts">
 	import type { Category } from './types';
+	type CategoryDiscount = {
+		category_id: number;
+		min_quantity: number | null;
+		percentage: number;
+		applied: boolean;
+		amount: number;
+		category_name: string;
+	};
 	let {
 		data,
 		categoryQuantities,
@@ -9,7 +17,7 @@
 	}: {
 		data: { categories: Category[] };
 		categoryQuantities: Record<number, number>;
-		categoryDiscounts: any[];
+		categoryDiscounts: CategoryDiscount[];
 		handleInputChange: (e: Event, categoryId: number) => void;
 		selectAll: (e: Event) => void;
 	} = $props();
@@ -20,8 +28,8 @@
 		Categorías
 	</h3>
 	<ul class="divide-y divide-slate-200">
-		{#each data.categories as cat: Category}
-			{@const d = categoryDiscounts.find((x: any) => x.category_id === cat.id)}
+		{#each data.categories as cat: Category (cat.id)}
+			{@const d = categoryDiscounts.find((x: CategoryDiscount) => x.category_id === cat.id)}
 			{@const unitDiscount = d && d.applied ? d.amount / (categoryQuantities[cat.id] || 1) : 0}
 			{@const unitFinal = cat.unit_price - unitDiscount}
 			<li class="flex items-center gap-2 py-2">

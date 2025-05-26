@@ -20,16 +20,12 @@
 		discounts?: { category_id: number }[];
 	} = $props();
 
-	let categories = $state<Category[]>([...initialCategories]);
+	let categories = $derived(initialCategories);
 	let name = $state('');
 	let unitPrice = $state('');
 	let editId = $state<number | null>(null);
 	let editName = $state('');
 	let editUnitPrice = $state('');
-
-	$effect(() => {
-		categories = [...initialCategories];
-	});
 
 	function startEdit(cat: Category) {
 		editId = cat.id;

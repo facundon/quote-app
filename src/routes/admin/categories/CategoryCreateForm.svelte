@@ -37,8 +37,9 @@
 	>
 		<h3 class="mb-2 text-lg font-bold text-blue-900">Nueva categoría</h3>
 		<div>
-			<label class="mb-1 block text-sm font-semibold">Nombre</label>
+			<label for="category-name" class="mb-1 block text-sm font-semibold">Nombre</label>
 			<input
+				id="category-name"
 				type="text"
 				class="w-full rounded border px-3 py-2"
 				placeholder="Nombre de la categoría"
@@ -47,8 +48,11 @@
 			/>
 		</div>
 		<div>
-			<label class="mb-1 block text-sm font-semibold">Precio unitario</label>
+			<label for="category-unit-price" class="mb-1 block text-sm font-semibold"
+				>Precio unitario</label
+			>
 			<input
+				id="category-unit-price"
 				type="number"
 				class="w-full rounded border px-3 py-2"
 				placeholder="Precio unitario"

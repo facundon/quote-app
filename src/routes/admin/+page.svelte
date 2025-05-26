@@ -15,8 +15,10 @@
 	const TAB_ORDER: TabKey[] = [TABS.CATEGORIES, TABS.STUDIES, TABS.DISCOUNTS];
 
 	let activeTab = $state<TabKey>(TABS.CATEGORIES);
+	// svelte-ignore non_reactive_update
 	let prevTab: TabKey | null = null;
 	let prevTabIndex = 0;
+	// svelte-ignore non_reactive_update
 	let direction: 1 | -1 = 1;
 
 	function setTab(tab: TabKey) {

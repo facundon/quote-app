@@ -43,17 +43,25 @@
 	>
 		<h3 class="mb-2 text-lg font-bold text-blue-900">Nuevo descuento</h3>
 		<div>
-			<label class="mb-1 block text-sm font-semibold">Categoría</label>
-			<select class="w-full rounded border px-3 py-2" name="category_id" bind:value={categoryId}>
+			<label for="discount-category" class="mb-1 block text-sm font-semibold">Categoría</label>
+			<select
+				id="discount-category"
+				class="w-full rounded border px-3 py-2"
+				name="category_id"
+				bind:value={categoryId}
+			>
 				<option value="">Seleccionar...</option>
-				{#each categories as cat}
+				{#each categories as cat (cat.id)}
 					<option value={String(cat.id)}>{cat.name}</option>
 				{/each}
 			</select>
 		</div>
 		<div>
-			<label class="mb-1 block text-sm font-semibold">Cantidad mínima</label>
+			<label for="discount-min-quantity" class="mb-1 block text-sm font-semibold"
+				>Cantidad mínima</label
+			>
 			<input
+				id="discount-min-quantity"
 				type="number"
 				class="w-full rounded border px-3 py-2"
 				placeholder="Cantidad mínima"
@@ -63,8 +71,11 @@
 			/>
 		</div>
 		<div>
-			<label class="mb-1 block text-sm font-semibold">Porcentaje (%)</label>
+			<label for="discount-percentage" class="mb-1 block text-sm font-semibold"
+				>Porcentaje (%)</label
+			>
 			<input
+				id="discount-percentage"
 				type="number"
 				class="w-full rounded border px-3 py-2"
 				placeholder="Porcentaje"

@@ -15,7 +15,7 @@
 		categories: Category[];
 	} = $props();
 
-	let discounts = $state<Discount[]>([...initialDiscounts]);
+	let discounts = $derived(initialDiscounts);
 	let categoryId = $state('');
 	let minQuantity = $state('');
 	let percentage = $state('');
@@ -23,10 +23,6 @@
 	let editCategoryId = $state('');
 	let editMinQuantity = $state('');
 	let editPercentage = $state('');
-
-	$effect(() => {
-		discounts = [...initialDiscounts];
-	});
 
 	function startEdit(discount: Discount) {
 		editId = discount.id;

@@ -15,7 +15,7 @@
 	} = $props();
 </script>
 
-{#each categories as cat}
+{#each categories as cat (cat.id)}
 	{#if discounts.filter((d) => d.category_id === cat.id).length > 0}
 		<div class="mt-6">
 			<h4 class="mb-2 border-b border-blue-200 pb-1 text-base font-bold text-blue-800">
@@ -24,7 +24,7 @@
 			<ul class="space-y-2">
 				{#each discounts
 					.filter((d) => d.category_id === cat.id)
-					.sort((a, b) => a.min_quantity - b.min_quantity) as discount}
+					.sort((a, b) => a.min_quantity - b.min_quantity) as discount (discount.id)}
 					<li class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 shadow-sm">
 						<div class="flex items-baseline gap-2">
 							<span class="text-sm font-bold text-slate-800">{discount.min_quantity}</span>

@@ -1,5 +1,13 @@
 <script lang="ts">
 	import type { Category } from './types';
+	type CategoryDiscount = {
+		category_id: number;
+		min_quantity: number | null;
+		percentage: number;
+		applied: boolean;
+		amount: number;
+		category_name: string;
+	};
 	let {
 		data,
 		categoryQuantities,
@@ -11,7 +19,7 @@
 	}: {
 		data: { categories: Category[] };
 		categoryQuantities: Record<number, number>;
-		categoryDiscounts: any[];
+		categoryDiscounts: CategoryDiscount[];
 		formatInt: (n: number) => string;
 		formatNumber: (n: number) => string;
 		showSummary: boolean;
@@ -45,16 +53,13 @@
 		<div
 			id="summary-panel"
 			class="overflow-hidden transition-all duration-300"
-			style:height={showSummary ? 'auto' : '0'}
-			style:paddingTop={showSummary ? '0.5rem' : '0'}
-			style:paddingBottom={showSummary ? '0.5rem' : '0'}
-			style:marginBottom={showSummary ? '0.5rem' : '0'}
+			style={`height: ${showSummary ? 'auto' : '0'}; padding-top: ${showSummary ? '0.5rem' : '0'}; padding-bottom: ${showSummary ? '0.5rem' : '0'}; margin-bottom: ${showSummary ? '0.5rem' : '0'};`}
 		>
 			{#if showSummary}
 				<ul class="divide-y divide-slate-200">
-					{#each data.categories as cat: Category}
+					{#each data.categories as cat: Category (cat.id)}
 						{#if categoryQuantities[cat.id] > 0}
-							{@const d = categoryDiscounts.find((x: any) => x.category_id === cat.id)}
+							{@const d = categoryDiscounts.find((x: CategoryDiscount) => x.category_id === cat.id)}
 							{@const unitDiscount =
 								d && d.applied && categoryQuantities[cat.id] > 0
 									? d.amount / categoryQuantities[cat.id]

@@ -56,7 +56,7 @@
 				bind:value={categoryId}
 			>
 				<option value="">Seleccionar...</option>
-				{#each categories as cat}
+				{#each categories as cat (cat.id)}
 					<option value={String(cat.id)}>{cat.name}</option>
 				{/each}
 			</select>
