@@ -95,7 +95,11 @@
 		{/if}
 		{#if activeTab === TABS.CATEGORIES}
 			<div in:fly={{ x: direction * 300, duration: 250 }}>
-				<CategoriesTab categories={data.categories} />
+				<CategoriesTab
+					categories={data.categories}
+					studies={data.studies}
+					discounts={data.discounts}
+				/>
 			</div>
 		{:else if activeTab === TABS.STUDIES}
 			<div in:fly={{ x: direction * 300, duration: 250 }}>

@@ -11,9 +11,13 @@
 	};
 
 	let {
-		categories: initialCategories
+		categories: initialCategories,
+		studies = [],
+		discounts = []
 	}: {
 		categories: Category[];
+		studies?: { category_id: number }[];
+		discounts?: { category_id: number }[];
 	} = $props();
 
 	let categories = $state<Category[]>([...initialCategories]);
@@ -57,5 +61,5 @@
 	/>
 {:else}
 	<CategoryCreateForm {name} {unitPrice} onCreated={fetchCategories} />
-	<CategoryList {categories} onEdit={startEdit} onDeleted={fetchCategories} />
+	<CategoryList {categories} {studies} {discounts} onEdit={startEdit} onDeleted={fetchCategories} />
 {/if}
