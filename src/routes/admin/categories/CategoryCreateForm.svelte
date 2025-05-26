@@ -1,25 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionResult } from '@sveltejs/kit';
 	let {
 		name,
 		unitPrice,
-		form,
 		onCreated
 	}: {
 		name: string;
 		unitPrice: string;
-		form?: ActionResult | undefined;
 		onCreated?: () => void | Promise<void>;
 	} = $props();
+
+	let isValid = $derived(name && name.trim().length > 0);
 </script>
 
-{#if form?.type === 'failure'}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{form.data?.error}</div>
-{/if}
-{#if form?.type === 'success'}
-	<div class="mb-2 rounded bg-green-100 px-3 py-2 text-green-700">{form.data?.message}</div>
-{/if}
 <div class="mb-4 rounded border border-blue-200 bg-blue-50 p-4 shadow">
 	<form
 		class="space-y-3"
@@ -64,7 +57,8 @@
 		</div>
 		<button
 			type="submit"
-			class="rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+			class="rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+			disabled={!isValid}
 		>
 			Guardar
 		</button>

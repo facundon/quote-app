@@ -21,6 +21,10 @@
 	// svelte-ignore non_reactive_update
 	let direction: 1 | -1 = 1;
 
+	let categories = $derived(data.categories);
+	let studies = $derived(data.studies);
+	let discounts = $derived(data.discounts);
+
 	function setTab(tab: TabKey) {
 		const newIndex = TAB_ORDER.indexOf(tab);
 		direction = newIndex > prevTabIndex ? 1 : -1;
@@ -82,34 +86,30 @@
 			<div class="absolute inset-0" style="z-index: {direction === 1 ? 1 : 2};">
 				{#if prevTab === TABS.CATEGORIES}
 					<div out:fly={{ x: -direction * 300, duration: 250 }}>
-						<CategoriesTab categories={data.categories} />
+						<CategoriesTab {categories} />
 					</div>
 				{:else if prevTab === TABS.STUDIES}
 					<div out:fly={{ x: -direction * 300, duration: 250 }}>
-						<StudiesTab studies={data.studies} categories={data.categories} />
+						<StudiesTab {studies} {categories} />
 					</div>
 				{:else if prevTab === TABS.DISCOUNTS}
 					<div out:fly={{ x: -direction * 300, duration: 250 }}>
-						<DiscountsTab discounts={data.discounts} categories={data.categories} />
+						<DiscountsTab {discounts} {categories} />
 					</div>
 				{/if}
 			</div>
 		{/if}
 		{#if activeTab === TABS.CATEGORIES}
 			<div in:fly={{ x: direction * 300, duration: 250 }}>
-				<CategoriesTab
-					categories={data.categories}
-					studies={data.studies}
-					discounts={data.discounts}
-				/>
+				<CategoriesTab {categories} {studies} {discounts} />
 			</div>
 		{:else if activeTab === TABS.STUDIES}
 			<div in:fly={{ x: direction * 300, duration: 250 }}>
-				<StudiesTab studies={data.studies} categories={data.categories} />
+				<StudiesTab {studies} {categories} />
 			</div>
 		{:else if activeTab === TABS.DISCOUNTS}
 			<div in:fly={{ x: direction * 300, duration: 250 }}>
-				<DiscountsTab discounts={data.discounts} categories={data.categories} />
+				<DiscountsTab {discounts} {categories} />
 			</div>
 		{/if}
 	</div>

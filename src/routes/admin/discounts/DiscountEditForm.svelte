@@ -20,6 +20,15 @@
 	} = $props();
 	let error = $state('');
 
+	let isValid = $derived(
+		categoryId &&
+			minQuantity &&
+			percentage &&
+			Number(minQuantity) > 0 &&
+			Number(percentage) >= 0 &&
+			Number(percentage) <= 100
+	);
+
 	function handleEnhance() {
 		return async ({ result }: { result: { type: string; data?: { error?: string } } }) => {
 			if (result.type === 'success' && onEdited) {
@@ -45,6 +54,7 @@
 				class="w-full rounded border px-3 py-2"
 				name="category_id"
 				bind:value={categoryId}
+				required
 			>
 				<option value="">Seleccionar...</option>
 				{#each categories as cat (cat.id)}
@@ -84,7 +94,8 @@
 		</div>
 		<button
 			type="submit"
-			class="rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+			class="rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+			disabled={!isValid}
 		>
 			Actualizar
 		</button>
