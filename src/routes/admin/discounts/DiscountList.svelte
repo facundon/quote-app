@@ -21,13 +21,15 @@
 		return { min, max: max === min ? min + 1 : max };
 	}
 
-	const categoryDiscounts = categories.map((cat) => {
-		const catDiscounts = discounts
-			.filter((d) => d.category_id === cat.id)
-			.sort((a, b) => a.min_quantity - b.min_quantity);
-		const minmax = getMinMax(catDiscounts);
-		return { cat, catDiscounts, minmax };
-	});
+	const categoryDiscounts = $derived(
+		categories.map((cat) => {
+			const catDiscounts = discounts
+				.filter((d) => d.category_id === cat.id)
+				.sort((a, b) => a.min_quantity - b.min_quantity);
+			const minmax = getMinMax(catDiscounts);
+			return { cat, catDiscounts, minmax };
+		})
+	);
 
 	function getDiscountColor(percentage: number) {
 		if (percentage <= 30) {
