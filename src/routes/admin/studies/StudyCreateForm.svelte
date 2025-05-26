@@ -18,10 +18,10 @@
 </script>
 
 {#if form?.type === 'failure'}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{form?.data?.error}</div>
+	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{form.data?.error}</div>
 {/if}
 {#if form?.type === 'success'}
-	<div class="mb-2 rounded bg-green-100 px-3 py-2 text-green-700">Study created.</div>
+	<div class="mb-2 rounded bg-green-100 px-3 py-2 text-green-700">{form.data?.message}</div>
 {/if}
 <div class="mb-4 rounded border border-blue-200 bg-blue-50 p-4 shadow">
 	<form

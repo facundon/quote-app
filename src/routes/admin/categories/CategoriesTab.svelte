@@ -2,8 +2,7 @@
 	import CategoryCreateForm from './CategoryCreateForm.svelte';
 	import CategoryEditForm from './CategoryEditForm.svelte';
 	import CategoryList from './CategoryList.svelte';
-	import type { ActionResult } from '@sveltejs/kit';
-	import { invalidate, invalidateAll } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 
 	type Category = {
 		id: number;
@@ -12,11 +11,9 @@
 	};
 
 	let {
-		categories: initialCategories,
-		form
+		categories: initialCategories
 	}: {
 		categories: Category[];
-		form?: ActionResult;
 	} = $props();
 
 	let categories = $state<Category[]>([...initialCategories]);
@@ -25,7 +22,6 @@
 	let editId = $state<number | null>(null);
 	let editName = $state('');
 	let editUnitPrice = $state('');
-	let error = $state('');
 
 	$effect(() => {
 		categories = [...initialCategories];
@@ -41,7 +37,6 @@
 		editId = null;
 		editName = '';
 		editUnitPrice = '';
-		error = '';
 	}
 
 	async function fetchCategories() {
@@ -49,15 +44,6 @@
 	}
 </script>
 
-{#if form?.type === 'failure'}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{form?.data?.error}</div>
-{/if}
-{#if form?.type === 'success'}
-	<div class="mb-2 rounded bg-green-100 px-3 py-2 text-green-700">Category created.</div>
-{/if}
-{#if error}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{error}</div>
-{/if}
 {#if editId}
 	<CategoryEditForm
 		id={editId}
@@ -70,6 +56,6 @@
 		onCancel={cancelEdit}
 	/>
 {:else}
-	<CategoryCreateForm {name} {unitPrice} {form} onCreated={fetchCategories} />
+	<CategoryCreateForm {name} {unitPrice} onCreated={fetchCategories} />
 	<CategoryList {categories} onEdit={startEdit} onDeleted={fetchCategories} />
 {/if}

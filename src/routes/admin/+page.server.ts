@@ -38,7 +38,7 @@ export const actions = {
 		}
 		try {
 			await db.insert(category).values({ name: String(name), unit_price: Number(unit_price) });
-			return { success: true };
+			return { type: 'success', status: 200, data: { message: 'Categoría creada.' } };
 		} catch {
 			return fail(500, { error: 'Error al crear la categoría.' });
 		}

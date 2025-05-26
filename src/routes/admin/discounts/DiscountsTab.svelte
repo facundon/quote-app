@@ -2,7 +2,6 @@
 	import DiscountCreateForm from './DiscountCreateForm.svelte';
 	import DiscountEditForm from './DiscountEditForm.svelte';
 	import DiscountList from './DiscountList.svelte';
-	import type { ActionResult } from '@sveltejs/kit';
 	import { invalidateAll } from '$app/navigation';
 
 	type Category = { id: number; name: string };
@@ -10,12 +9,10 @@
 
 	let {
 		discounts: initialDiscounts,
-		categories,
-		form
+		categories
 	}: {
 		discounts: Discount[];
 		categories: Category[];
-		form?: ActionResult;
 	} = $props();
 
 	let discounts = $state<Discount[]>([...initialDiscounts]);
@@ -26,7 +23,6 @@
 	let editCategoryId = $state('');
 	let editMinQuantity = $state('');
 	let editPercentage = $state('');
-	let error = $state('');
 
 	$effect(() => {
 		discounts = [...initialDiscounts];
@@ -44,7 +40,6 @@
 		editCategoryId = '';
 		editMinQuantity = '';
 		editPercentage = '';
-		error = '';
 	}
 
 	async function fetchDiscounts() {
@@ -52,15 +47,6 @@
 	}
 </script>
 
-{#if form?.type === 'failure'}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{form?.data?.error}</div>
-{/if}
-{#if form?.type === 'success'}
-	<div class="mb-2 rounded bg-green-100 px-3 py-2 text-green-700">Discount created.</div>
-{/if}
-{#if error}
-	<div class="mb-2 rounded bg-red-100 px-3 py-2 text-red-700">{error}</div>
-{/if}
 {#if editId}
 	<DiscountEditForm
 		id={editId}
@@ -80,7 +66,6 @@
 		{minQuantity}
 		{percentage}
 		{categories}
-		{form}
 		onCreated={fetchDiscounts}
 	/>
 	<DiscountList {discounts} {categories} onEdit={startEdit} onDeleted={fetchDiscounts} />
