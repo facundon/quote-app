@@ -5,6 +5,10 @@
 		Object.fromEntries(data.categories.map((cat) => [cat.id, 0]))
 	);
 	let showSummary = $state(true);
+	let search = $state('');
+	let selectedStudy = $state<{ id: number; name: string; category_id: number } | null>(null);
+	let showSuggestions = $state(false);
+	let highlightedIndex = $state(-1);
 
 	function handleInputChange(e: Event, categoryId: number) {
 		const target = e.target as HTMLInputElement;
@@ -79,6 +83,44 @@
 	function selectAll(e: Event) {
 		(e.target as HTMLInputElement).select();
 	}
+
+	function handleSearchInput(e: Event) {
+		search = (e.target as HTMLInputElement).value;
+		showSuggestions = !!search.trim();
+		highlightedIndex = -1;
+		selectedStudy = null;
+	}
+
+	function selectSuggestion(study: { id: number; name: string; category_id: number }) {
+		selectedStudy = study;
+		search = study.name;
+		showSuggestions = false;
+		highlightedIndex = -1;
+	}
+
+	function handleSearchKeydown(
+		e: KeyboardEvent,
+		suggestions: { id: number; name: string; category_id: number }[]
+	) {
+		if (!showSuggestions || suggestions.length === 0) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			highlightedIndex = (highlightedIndex + 1) % suggestions.length;
+			selectedStudy = suggestions[highlightedIndex];
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			highlightedIndex = (highlightedIndex - 1 + suggestions.length) % suggestions.length;
+			selectedStudy = suggestions[highlightedIndex];
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+				selectSuggestion(suggestions[highlightedIndex]);
+			}
+		} else if (e.key === 'Escape') {
+			showSuggestions = false;
+			highlightedIndex = -1;
+		}
+	}
 </script>
 
 <div
@@ -88,6 +130,57 @@
 		<h2 class="mb-6 text-center text-3xl font-extrabold tracking-tight text-blue-900">
 			Presupuesto
 		</h2>
+		<!-- Buscador de estudios -->
+		<div class="mx-auto mb-6 max-w-xl">
+			<label class="mb-1 block text-sm font-semibold text-blue-900">Buscar estudio</label>
+			<div class="relative flex flex-row flex-wrap items-center gap-3">
+				<input
+					type="text"
+					placeholder="Buscar estudio..."
+					bind:value={search}
+					oninput={handleSearchInput}
+					onkeydown={(e) =>
+						handleSearchKeydown(
+							e,
+							data.studies.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+						)}
+					class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition focus:ring-2 focus:ring-blue-400 focus:outline-none sm:w-64"
+					autocomplete="off"
+				/>
+				{#if selectedStudy}
+					<span class="max-w-xs truncate text-sm font-medium text-blue-900">
+						{data.categories.find((c) => c.id === selectedStudy?.category_id)?.name}
+					</span>
+				{/if}
+				{#if showSuggestions && search.trim()}
+					<ul
+						class="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+					>
+						{#each data.studies.filter((s) => s.name
+								.toLowerCase()
+								.includes(search.toLowerCase())) as s, i}
+							<li
+								class="cursor-pointer px-3 py-2 text-sm hover:bg-blue-100 {highlightedIndex === i
+									? 'bg-blue-100'
+									: ''}"
+								onmousedown={() => selectSuggestion(s)}
+								onmouseover={() => {
+									highlightedIndex = i;
+									selectedStudy = s;
+								}}
+							>
+								{s.name}
+							</li>
+						{/each}
+						{#if data.studies.filter((s) => s.name
+								.toLowerCase()
+								.includes(search.toLowerCase())).length === 0}
+							<li class="px-3 py-2 text-sm text-slate-400">Sin resultados</li>
+						{/if}
+					</ul>
+				{/if}
+			</div>
+		</div>
 		<div class="mt-2 mb-8 rounded-xl bg-blue-50/60 p-4">
 			<h3 class="mb-6 border-b-4 border-blue-400 pb-2 text-2xl font-extrabold text-blue-900">
 				Categorías
