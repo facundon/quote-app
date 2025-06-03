@@ -19,6 +19,13 @@
 		handleSearchKeydown: (e: KeyboardEvent, suggestions: Study[]) => void;
 		selectSuggestion: (study: Study) => void;
 	} = $props();
+
+	function handleSearch(e: KeyboardEvent) {
+		handleSearchKeydown(
+			e,
+			data.studies.filter((s: Study) => s.name.toLowerCase().includes(search.toLowerCase()))
+		);
+	}
 </script>
 
 <div class="mx-auto mb-6 max-w-xl">
@@ -32,11 +39,7 @@
 			placeholder="Buscar estudio..."
 			bind:value={search}
 			oninput={handleSearchInput}
-			onkeydown={(e: KeyboardEvent) =>
-				handleSearchKeydown(
-					e,
-					data.studies.filter((s: Study) => s.name.toLowerCase().includes(search.toLowerCase()))
-				)}
+			onkeydown={handleSearch}
 			class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition focus:ring-2 focus:ring-blue-400 focus:outline-none sm:w-64"
 			autocomplete="off"
 		/>

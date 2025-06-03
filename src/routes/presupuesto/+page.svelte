@@ -1,8 +1,8 @@
 <script lang="ts">
-	import PresupuestoSearch from './PresupuestoSearch.svelte';
-	import PresupuestoCategorias from './PresupuestoCategorias.svelte';
-	import PresupuestoResumen from './PresupuestoResumen.svelte';
-	import PresupuestoTotales from './PresupuestoTotales.svelte';
+	import QuoteSearch from './QuoteSearch.svelte';
+	import QuoteCategories from './QuoteCategories.svelte';
+	import QuoteSummary from './QuoteSummary.svelte';
+	import QuoteTotals from './QuoteTotals.svelte';
 
 	let { data } = $props();
 
@@ -83,7 +83,7 @@
 		categoryDiscounts.reduce((sum, d) => sum + d.amount, 0)
 	);
 
-	let finalTotal = $derived.by(() => total - totalDiscountAmount);
+	let finalTotal = $derived.by(() => Math.floor(total - totalDiscountAmount));
 
 	function selectAll(e: Event) {
 		(e.target as HTMLInputElement).select();
@@ -135,7 +135,7 @@
 		<h2 class="mb-6 text-center text-3xl font-extrabold tracking-tight text-blue-900">
 			Presupuesto
 		</h2>
-		<PresupuestoSearch
+		<QuoteSearch
 			{search}
 			{selectedStudy}
 			{showSuggestions}
@@ -145,14 +145,14 @@
 			{handleSearchKeydown}
 			{selectSuggestion}
 		/>
-		<PresupuestoCategorias
+		<QuoteCategories
 			{data}
 			{categoryQuantities}
 			{categoryDiscounts}
 			{handleInputChange}
 			{selectAll}
 		/>
-		<PresupuestoResumen
+		<QuoteSummary
 			{data}
 			{categoryQuantities}
 			{categoryDiscounts}
@@ -161,7 +161,7 @@
 			{showSummary}
 			toggleSummary={() => (showSummary = !showSummary)}
 		/>
-		<PresupuestoTotales {total} {categoryDiscounts} {formatNumber} {finalTotal} />
+		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} />
 	</div>
 </div>
 
