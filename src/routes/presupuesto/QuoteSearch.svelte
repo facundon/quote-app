@@ -23,7 +23,17 @@
 	function handleSearch(e: KeyboardEvent) {
 		handleSearchKeydown(
 			e,
-			data.studies.filter((s: Study) => s.name.toLowerCase().includes(search.toLowerCase()))
+			data.studies.filter((s: Study) => {
+				const normalizedSearch = search
+					.toLowerCase()
+					.normalize('NFD')
+					.replace(/[\u0300-\u036f]/g, '');
+				const normalizedName = s.name
+					.toLowerCase()
+					.normalize('NFD')
+					.replace(/[\u0300-\u036f]/g, '');
+				return normalizedName.includes(normalizedSearch);
+			})
 		);
 	}
 </script>
