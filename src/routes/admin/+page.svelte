@@ -34,7 +34,7 @@
 	}
 </script>
 
-<div class="mx-auto mt-10 max-w-2xl rounded-xl bg-white p-6 shadow-lg">
+<div class="mx-auto mt-10 max-w-3xl rounded-xl bg-white p-6 shadow-lg">
 	<h1 class="mb-6 text-center text-2xl font-extrabold text-blue-900">Administración</h1>
 	<div class="mb-6 flex w-full border-b">
 		<button

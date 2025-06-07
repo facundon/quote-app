@@ -83,7 +83,7 @@
 		categoryDiscounts.reduce((sum, d) => sum + d.amount, 0)
 	);
 
-	let finalTotal = $derived.by(() => Math.floor(total - totalDiscountAmount));
+	let finalTotal = $derived.by(() => Math.floor((total - totalDiscountAmount) / 1000) * 1000);
 
 	function selectAll(e: Event) {
 		(e.target as HTMLInputElement).select();
@@ -129,9 +129,9 @@
 </script>
 
 <div
-	class="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-2 py-8"
+	class="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-100 to-blue-50 px-2 py-8"
 >
-	<div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-2xl">
+	<div class="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-2xl">
 		<h2 class="mb-6 text-center text-3xl font-extrabold tracking-tight text-blue-900">
 			Presupuesto
 		</h2>

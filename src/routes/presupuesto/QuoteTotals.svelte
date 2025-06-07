@@ -19,6 +19,8 @@
 		formatNumber: (n: number) => string;
 		finalTotal: number;
 	} = $props();
+
+	let totalDiscounts = $derived(categoryDiscounts.reduce((acc, d) => acc + d.amount, 0));
 </script>
 
 <div
@@ -35,23 +37,17 @@
 			</div>
 			<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
 		</div>
-		{#if categoryDiscounts.some((d: CategoryDiscount) => d.applied)}
-			{#each categoryDiscounts as d: CategoryDiscount (d.category_id)}
-				{#if d.applied}
-					<div class="mb-1 w-full">
-						<div class="flex w-full items-center gap-2">
-							<span class="text-base font-semibold whitespace-nowrap text-green-700"
-								>Descuento {d.category_name}</span
-							>
-							<span class="flex-grow"></span>
-							<span class="font-semibold whitespace-nowrap text-red-500"
-								>- ${formatNumber(d.amount)}</span
-							>
-						</div>
-						<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
-					</div>
-				{/if}
-			{/each}
+		{#if totalDiscounts > 0}
+			<div class="mb-1 w-full">
+				<div class="flex w-full items-center gap-2">
+					<span class="text-base font-semibold whitespace-nowrap text-green-700">Descuentos</span>
+					<span class="flex-grow"></span>
+					<span class="font-semibold whitespace-nowrap text-red-500"
+						>- ${formatNumber(totalDiscounts)}</span
+					>
+				</div>
+			</div>
+			<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
 		{/if}
 	</div>
 	<div class="mt-2 mb-2 flex flex-col items-center justify-center">

@@ -38,7 +38,7 @@
 	}
 </script>
 
-<div class="mx-auto mb-6 max-w-xl">
+<div class="mx-auto mb-6 max-w-3xl">
 	<label for="search-input" class="mb-1 block text-sm font-semibold text-blue-900"
 		>Buscar estudio</label
 	>
@@ -50,12 +50,16 @@
 			bind:value={search}
 			oninput={handleSearchInput}
 			onkeydown={handleSearch}
-			class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition focus:ring-2 focus:ring-blue-400 focus:outline-none sm:w-64"
+			class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm transition focus:ring-2 focus:ring-blue-400 focus:outline-none"
 			autocomplete="off"
 		/>
 		{#if selectedStudy}
-			<span class="max-w-xs truncate text-sm font-medium text-blue-900">
+			<span class="w-full truncate text-center text-sm font-bold text-blue-900">
 				{data.categories.find((c: Category) => c.id === selectedStudy?.category_id)?.name}
+			</span>
+		{:else}
+			<span class="w-full truncate text-center text-sm font-bold text-blue-900">
+				Selecciona un estudio
 			</span>
 		{/if}
 		{#if showSuggestions && search.trim()}
