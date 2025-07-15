@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import FilePicker from '$lib/components/FilePicker.svelte';
 
 	type Invoice = {
 		id: number;
 		pdf_path: string;
+		payment_receipt_path: string | null;
 		value: number;
 		payment_status: string;
 		shipping_status: string;
@@ -31,6 +33,7 @@
 	let shippingStatus = $state(invoice.shipping_status);
 	let paymentDate = $state(formatDateForInput(invoice.payment_date));
 	let receptionDate = $state(formatDateForInput(invoice.reception_date));
+	let paymentReceiptFile = $state<File | null>(null);
 	let isSubmitting = $state(false);
 
 	// Derived states for date field visibility and disabled state
@@ -66,6 +69,12 @@
 		return date.toLocaleDateString('es-AR');
 	}
 
+	function handleFileSelected(file: File, id: string) {
+		if (id === 'payment_receipt') {
+			paymentReceiptFile = file;
+		}
+	}
+
 	const statusOptions = [
 		{ value: 'pending', label: 'Pendiente' },
 		{ value: 'paid', label: 'Pagado' }
@@ -84,6 +93,7 @@
 	<form
 		method="POST"
 		action="?/invoice_edit"
+		enctype="multipart/form-data"
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
@@ -162,6 +172,33 @@
 							? 'cursor-not-allowed bg-gray-100 text-gray-400'
 							: ''}"
 					/>
+				</div>
+
+				<div class="md:col-span-2">
+					<label for="payment_receipt" class="mb-1 block text-sm font-semibold"
+						>Comprobante de Pago (PDF)</label
+					>
+					{#if paymentStatus === 'paid'}
+						<FilePicker
+							id="payment_receipt"
+							name="payment_receipt"
+							accept=".pdf"
+							required={false}
+							placeholder="Seleccionar archivo"
+							selectedFileName={paymentReceiptFile?.name}
+							existingFileName={invoice.payment_receipt_path ? 'Comprobante de pago subido' : null}
+							onFileSelected={handleFileSelected}
+						/>
+						{#if invoice.payment_receipt_path}
+							<p class="mt-1 text-sm text-green-600">✓ Comprobante de pago subido</p>
+						{/if}
+					{:else}
+						<div class="rounded border bg-gray-100 px-3 py-2">
+							<span class="text-sm text-gray-500"
+								>Cambia el estado de pago a "Pagado" para subir el comprobante</span
+							>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

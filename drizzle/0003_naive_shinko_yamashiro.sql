@@ -1,0 +1,1 @@
+ALTER TABLE `invoice` ADD `payment_receipt_path` text;

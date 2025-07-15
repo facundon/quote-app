@@ -22,6 +22,13 @@
       "when": 1752592036627,
       "tag": "0002_cute_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1752601039047,
+      "tag": "0003_naive_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

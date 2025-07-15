@@ -10,6 +10,7 @@ export async function load() {
 		.select({
 			id: invoice.id,
 			pdf_path: invoice.pdf_path,
+			payment_receipt_path: invoice.payment_receipt_path,
 			value: invoice.value,
 			payment_status: invoice.payment_status,
 			shipping_status: invoice.shipping_status,
@@ -32,6 +33,7 @@ export const actions = {
 	invoice_create: async ({ request }) => {
 		const form = await request.formData();
 		const pdfFile = form.get('pdf') as File;
+		const paymentReceiptFile = form.get('payment_receipt') as File;
 		const value = form.get('value');
 		const provider_id = form.get('provider_id');
 		const uploaded_by = form.get('uploaded_by');
@@ -83,8 +85,26 @@ export const actions = {
 			// Store relative path in database
 			const relativePath = path.join('facturas', sanitizedProviderName, fileName);
 
+			// Handle payment receipt file if provided
+			let paymentReceiptPath: string | null = null;
+			if (paymentReceiptFile) {
+				// Generate receipt filename with _comprobante suffix
+				const receiptOriginalName = paymentReceiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+				const receiptFileName = `${timestamp}_${receiptOriginalName.replace('.pdf', '_comprobante.pdf')}`;
+				const receiptFilePath = path.join(providerDir, receiptFileName);
+
+				// Convert File to Buffer and save
+				const receiptArrayBuffer = await paymentReceiptFile.arrayBuffer();
+				const receiptBuffer = Buffer.from(receiptArrayBuffer);
+				await writeFile(receiptFilePath, receiptBuffer);
+
+				// Store relative path in database
+				paymentReceiptPath = path.join('facturas', sanitizedProviderName, receiptFileName);
+			}
+
 			await db.insert(invoice).values({
 				pdf_path: relativePath,
+				payment_receipt_path: paymentReceiptPath,
 				value: Number(value),
 				payment_status: 'pending',
 				shipping_status: 'pending',
@@ -109,12 +129,62 @@ export const actions = {
 		const shipping_status = form.get('shipping_status');
 		const payment_date = form.get('payment_date');
 		const reception_date = form.get('reception_date');
+		const paymentReceiptFile = form.get('payment_receipt') as File;
 
 		if (!id || !value || !uploaded_by || !payment_status || !shipping_status) {
 			return { type: 'failure', status: 400, data: { error: 'Faltan campos requeridos.' } };
 		}
 
 		try {
+			// Get current invoice data to find the PDF path for receipt naming
+			const currentInvoice = await db
+				.select({
+					pdf_path: invoice.pdf_path,
+					payment_status: invoice.payment_status,
+					payment_receipt_path: invoice.payment_receipt_path
+				})
+				.from(invoice)
+				.where(eq(invoice.id, Number(id)))
+				.limit(1);
+
+			if (currentInvoice.length === 0) {
+				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+			}
+
+			const currentPdfPath = currentInvoice[0].pdf_path;
+			const currentPaymentStatus = currentInvoice[0].payment_status;
+			const currentReceiptPath = currentInvoice[0].payment_receipt_path;
+			let paymentReceiptPath: string | null = null;
+
+			// If changing from paid to pending, delete the receipt file
+			if (currentPaymentStatus === 'paid' && payment_status === 'pending' && currentReceiptPath) {
+				const fullReceiptPath = path.join(process.cwd(), currentReceiptPath);
+				if (fs.existsSync(fullReceiptPath)) {
+					fs.unlinkSync(fullReceiptPath);
+					console.log(`Payment receipt file deleted: ${fullReceiptPath}`);
+				}
+				paymentReceiptPath = null;
+			}
+
+			// Handle payment receipt file if provided
+			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
+				// Extract the base path from the current PDF path
+				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
+				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+
+				// Generate receipt filename with _comprobante suffix
+				const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+				const receiptFilePath = path.join(pdfDir, receiptFileName);
+
+				// Convert File to Buffer and save
+				const receiptArrayBuffer = await paymentReceiptFile.arrayBuffer();
+				const receiptBuffer = Buffer.from(receiptArrayBuffer);
+				await writeFile(receiptFilePath, receiptBuffer);
+
+				// Store relative path in database
+				paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+			}
+
 			await db
 				.update(invoice)
 				.set({
@@ -123,7 +193,8 @@ export const actions = {
 					payment_status: String(payment_status),
 					shipping_status: String(shipping_status),
 					payment_date: payment_date ? String(payment_date) : null,
-					reception_date: reception_date ? String(reception_date) : null
+					reception_date: reception_date ? String(reception_date) : null,
+					...(paymentReceiptPath !== undefined && { payment_receipt_path: paymentReceiptPath })
 				})
 				.where(eq(invoice.id, Number(id)));
 
@@ -175,34 +246,6 @@ export const actions = {
 		}
 	},
 
-	invoice_quick_paid: async ({ request }) => {
-		const form = await request.formData();
-		const id = form.get('id');
-
-		if (!id) {
-			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
-		}
-
-		try {
-			await db
-				.update(invoice)
-				.set({
-					payment_status: 'paid',
-					payment_date: new Date().toISOString()
-				})
-				.where(eq(invoice.id, Number(id)));
-
-			return { type: 'success', status: 200, data: { message: 'Factura marcada como pagada.' } };
-		} catch (error) {
-			console.error('Error marking invoice as paid:', error);
-			return {
-				type: 'failure',
-				status: 500,
-				data: { error: 'Error al marcar la factura como pagada.' }
-			};
-		}
-	},
-
 	invoice_quick_received: async ({ request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
@@ -227,6 +270,137 @@ export const actions = {
 				type: 'failure',
 				status: 500,
 				data: { error: 'Error al marcar la factura como recibida.' }
+			};
+		}
+	},
+
+	invoice_upload_receipt: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		const paymentReceiptFile = form.get('payment_receipt') as File;
+
+		if (!id || !paymentReceiptFile || paymentReceiptFile.size === 0) {
+			return { type: 'failure', status: 400, data: { error: 'Faltan campos requeridos.' } };
+		}
+
+		try {
+			// Get current invoice data to find the PDF path for receipt naming
+			const currentInvoice = await db
+				.select({ pdf_path: invoice.pdf_path, payment_status: invoice.payment_status })
+				.from(invoice)
+				.where(eq(invoice.id, Number(id)))
+				.limit(1);
+
+			if (currentInvoice.length === 0) {
+				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+			}
+
+			if (currentInvoice[0].payment_status !== 'paid') {
+				return {
+					type: 'failure',
+					status: 400,
+					data: { error: 'Solo se puede subir comprobante a facturas pagadas.' }
+				};
+			}
+
+			const currentPdfPath = currentInvoice[0].pdf_path;
+
+			// Extract the base path from the current PDF path
+			const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
+			const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+
+			// Generate receipt filename with _comprobante suffix
+			const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+			const receiptFilePath = path.join(pdfDir, receiptFileName);
+
+			// Convert File to Buffer and save
+			const receiptArrayBuffer = await paymentReceiptFile.arrayBuffer();
+			const receiptBuffer = Buffer.from(receiptArrayBuffer);
+			await writeFile(receiptFilePath, receiptBuffer);
+
+			// Store relative path in database
+			const paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+
+			await db
+				.update(invoice)
+				.set({
+					payment_receipt_path: paymentReceiptPath
+				})
+				.where(eq(invoice.id, Number(id)));
+
+			return { type: 'success', status: 200, data: { message: 'Comprobante de pago subido.' } };
+		} catch (error) {
+			console.error('Error uploading payment receipt:', error);
+			return {
+				type: 'failure',
+				status: 500,
+				data: { error: 'Error al subir el comprobante de pago.' }
+			};
+		}
+	},
+
+	invoice_mark_paid_with_receipt: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		const paymentReceiptFile = form.get('payment_receipt') as File;
+
+		if (!id) {
+			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+		}
+
+		try {
+			// Get current invoice data to find the PDF path for receipt naming
+			const currentInvoice = await db
+				.select({
+					pdf_path: invoice.pdf_path,
+					payment_status: invoice.payment_status
+				})
+				.from(invoice)
+				.where(eq(invoice.id, Number(id)))
+				.limit(1);
+
+			if (currentInvoice.length === 0) {
+				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+			}
+
+			const currentPdfPath = currentInvoice[0].pdf_path;
+			let paymentReceiptPath: string | null = null;
+
+			// Handle payment receipt file if provided
+			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
+				// Extract the base path from the current PDF path
+				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
+				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+
+				// Generate receipt filename with _comprobante suffix
+				const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+				const receiptFilePath = path.join(pdfDir, receiptFileName);
+
+				// Convert File to Buffer and save
+				const receiptArrayBuffer = await paymentReceiptFile.arrayBuffer();
+				const receiptBuffer = Buffer.from(receiptArrayBuffer);
+				await writeFile(receiptFilePath, receiptBuffer);
+
+				// Store relative path in database
+				paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+			}
+
+			await db
+				.update(invoice)
+				.set({
+					payment_status: 'paid',
+					payment_date: new Date().toISOString(),
+					...(paymentReceiptPath && { payment_receipt_path: paymentReceiptPath })
+				})
+				.where(eq(invoice.id, Number(id)));
+
+			return { type: 'success', status: 200, data: { message: 'Factura marcada como pagada.' } };
+		} catch (error) {
+			console.error('Error marking invoice as paid:', error);
+			return {
+				type: 'failure',
+				status: 500,
+				data: { error: 'Error al marcar la factura como pagada.' }
 			};
 		}
 	}

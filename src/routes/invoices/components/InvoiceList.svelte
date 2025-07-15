@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Menu from '$lib/components/Menu.svelte';
+	import MarkAsPaidModal from '$lib/components/MarkAsPaidModal.svelte';
 
 	type Invoice = {
 		id: number;
 		pdf_path: string;
+		payment_receipt_path: string | null;
 		value: number;
 		payment_status: string;
 		shipping_status: string;
@@ -27,6 +29,19 @@
 		onDeleted: () => void;
 		onUpdated: () => void;
 	} = $props();
+
+	let showReceiptModal = $state(false);
+	let selectedInvoice = $state<Invoice | null>(null);
+
+	function openReceiptModal(invoice: Invoice) {
+		selectedInvoice = invoice;
+		showReceiptModal = true;
+	}
+
+	function closeReceiptModal() {
+		showReceiptModal = false;
+		selectedInvoice = null;
+	}
 
 	function getStatusColor(status: string): string {
 		switch (status) {
@@ -188,13 +203,25 @@
 								<Menu
 									options={[
 										{
-											label: 'Abrir PDF',
+											label: 'Ver Factura',
 											icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>',
 											color: 'text-gray-700',
 											callback: () => {
 												window.open(`/facturas/${invoice.pdf_path}`, '_blank');
 											}
 										},
+										...(invoice.payment_receipt_path
+											? [
+													{
+														label: 'Ver Recibo de Pago',
+														icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 6v12a3 3 0 103-3H6a3 3 0 10-3 3V6a3 3 0 103-3"/></svg>',
+														color: 'text-blue-600',
+														callback: () => {
+															window.open(`/facturas/${invoice.payment_receipt_path}`, '_blank');
+														}
+													}
+												]
+											: []),
 										...(invoice.payment_status !== 'paid'
 											? [
 													{
@@ -202,21 +229,7 @@
 														icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
 														color: 'text-green-600',
 														callback: () => {
-															const form = document.createElement('form');
-															form.method = 'POST';
-															form.action = '?/invoice_quick_paid';
-
-															const input = document.createElement('input');
-															input.type = 'hidden';
-															input.name = 'id';
-															input.value = invoice.id.toString();
-
-															form.appendChild(input);
-															document.body.appendChild(form);
-															form.submit();
-															document.body.removeChild(form);
-
-															onUpdated();
+															openReceiptModal(invoice);
 														}
 													}
 												]
@@ -287,3 +300,10 @@
 		</div>
 	{/if}
 </div>
+
+<MarkAsPaidModal
+	show={showReceiptModal}
+	invoice={selectedInvoice}
+	onClose={closeReceiptModal}
+	onSuccess={onUpdated}
+/>

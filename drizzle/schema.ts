@@ -27,6 +27,7 @@ export const study = sqliteTable('study', {
 export const invoice = sqliteTable('invoice', {
 	id: integer().primaryKey().notNull(),
 	pdfPath: text('pdf_path').notNull(),
+	paymentReceiptPath: text('payment_receipt_path'),
 	value: real().notNull(),
 	paymentStatus: text('payment_status').notNull(),
 	shippingStatus: text('shipping_status').notNull(),

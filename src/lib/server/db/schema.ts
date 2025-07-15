@@ -38,6 +38,7 @@ export const provider = sqliteTable('provider', {
 export const invoice = sqliteTable('invoice', {
 	id: integer('id').primaryKey(),
 	pdf_path: text('pdf_path').notNull(),
+	payment_receipt_path: text('payment_receipt_path'),
 	value: real('value').notNull(),
 	payment_status: text('payment_status').notNull(), // 'pending', 'paid', 'overdue'
 	shipping_status: text('shipping_status').notNull(), // 'pending', 'sent', 'received'

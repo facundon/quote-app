@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import FilePicker from '$lib/components/FilePicker.svelte';
 
 	type Provider = {
 		id: number;
@@ -23,6 +24,7 @@
 	let providerId = $state('');
 	let uploadedBy = $state('');
 	let pdfFile = $state<File | null>(null);
+	let paymentReceiptFile = $state<File | null>(null);
 	let isSubmitting = $state(false);
 
 	function resetForm() {
@@ -30,17 +32,23 @@
 		providerId = '';
 		uploadedBy = '';
 		pdfFile = null;
-		// Reset the file input
-		const fileInput = document.getElementById('pdf') as HTMLInputElement;
-		if (fileInput) {
-			fileInput.value = '';
+		paymentReceiptFile = null;
+		// Reset the file inputs
+		const pdfInput = document.getElementById('pdf') as HTMLInputElement;
+		const receiptInput = document.getElementById('payment_receipt') as HTMLInputElement;
+		if (pdfInput) {
+			pdfInput.value = '';
+		}
+		if (receiptInput) {
+			receiptInput.value = '';
 		}
 	}
 
-	function handleFileChange(event: Event) {
-		const target = event.target as HTMLInputElement;
-		if (target.files && target.files[0]) {
-			pdfFile = target.files[0];
+	function handleFileSelected(file: File, id: string) {
+		if (id === 'pdf') {
+			pdfFile = file;
+		} else if (id === 'payment_receipt') {
+			paymentReceiptFile = file;
 		}
 	}
 </script>
@@ -62,7 +70,7 @@
 		}}
 		class="space-y-4"
 	>
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 			<div>
 				<label for="value" class="mb-1 block text-sm font-semibold">Valor ($)</label>
 				<input
@@ -106,21 +114,35 @@
 					placeholder="Nombre de la persona"
 				/>
 			</div>
+		</div>
 
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<div>
-				<label for="pdf" class="mb-1 block text-sm font-semibold">Archivo PDF</label>
-				<input
-					type="file"
+				<label for="pdf" class="mb-1 block text-sm font-semibold">Factura (PDF)</label>
+				<FilePicker
 					id="pdf"
 					name="pdf"
 					accept=".pdf"
-					required
-					onchange={handleFileChange}
-					class="w-full rounded border px-3 py-2"
+					required={true}
+					placeholder="Seleccionar archivo"
+					selectedFileName={pdfFile?.name}
+					onFileSelected={handleFileSelected}
 				/>
-				{#if pdfFile}
-					<p class="mt-1 text-sm text-gray-600">Archivo seleccionado: {pdfFile.name}</p>
-				{/if}
+			</div>
+
+			<div>
+				<label for="payment_receipt" class="mb-1 block text-sm font-semibold"
+					>Recibo de Pago (PDF) - Opcional</label
+				>
+				<FilePicker
+					id="payment_receipt"
+					name="payment_receipt"
+					accept=".pdf"
+					required={false}
+					placeholder="Seleccionar archivo"
+					selectedFileName={paymentReceiptFile?.name}
+					onFileSelected={handleFileSelected}
+				/>
 			</div>
 		</div>
 
