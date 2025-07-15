@@ -8,6 +8,7 @@ CREATE TABLE `invoice` (
 	`reception_date` text,
 	`provider_id` integer NOT NULL,
 	`uploaded_by` text NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (`provider_id`) REFERENCES `provider`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint

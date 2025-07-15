@@ -1,15 +1,68 @@
 <script lang="ts">
-	// Placeholder for invoices functionality
+	import InvoiceCreateForm from './components/InvoiceCreateForm.svelte';
+	import InvoiceEditForm from './components/InvoiceEditForm.svelte';
+	import InvoiceList from './components/InvoiceList.svelte';
+	import { invalidateAll } from '$app/navigation';
+
+	type Invoice = {
+		id: number;
+		pdf_path: string;
+		value: number;
+		payment_status: string;
+		shipping_status: string;
+		payment_date: string | null;
+		reception_date: string | null;
+		provider_id: number;
+		uploaded_by: string;
+		created_at: string | null;
+		provider_name: string | null;
+	};
+
+	type Provider = {
+		id: number;
+		name: string;
+		address: string;
+		phone: string;
+		email: string;
+		cbu_alias: string;
+		contact_name: string;
+	};
+
+	let { data } = $props();
+
+	let invoices = $derived(data.invoices);
+	let providers = $derived(data.providers);
+	let editInvoice = $state<Invoice | null>(null);
+
+	function startEdit(invoice: Invoice) {
+		editInvoice = invoice;
+	}
+
+	function cancelEdit() {
+		editInvoice = null;
+	}
+
+	async function fetchInvoices() {
+		await invalidateAll();
+	}
 </script>
 
-<div class="mx-auto max-w-4xl">
+<div class="mx-auto max-w-6xl">
 	<div class="rounded-xl bg-white p-8 shadow-lg">
-		<h1 class="mb-6 text-3xl font-extrabold text-blue-900">Facturas</h1>
+		<h1 class="mb-6 text-3xl font-extrabold text-blue-900">Gestión de Facturas</h1>
 
-		<div class="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-			<div class="mb-4 text-6xl">📄</div>
-			<h3 class="mb-2 text-lg font-medium text-gray-900">Gestión de Facturas</h3>
-			<p class="text-gray-500">Aquí podrás gestionar las facturas de tus presupuestos.</p>
-		</div>
+		{#if editInvoice}
+			<InvoiceEditForm
+				invoice={editInvoice}
+				onEdited={() => {
+					fetchInvoices();
+					cancelEdit();
+				}}
+				onCancel={cancelEdit}
+			/>
+		{:else}
+			<InvoiceCreateForm {providers} onCreated={fetchInvoices} />
+			<InvoiceList {invoices} onEdit={startEdit} onDeleted={fetchInvoices} />
+		{/if}
 	</div>
 </div>

@@ -1,4 +1,5 @@
 import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
 export const category = sqliteTable('category', {
@@ -45,7 +46,10 @@ export const invoice = sqliteTable('invoice', {
 	provider_id: integer('provider_id')
 		.references(() => provider.id)
 		.notNull(),
-	uploaded_by: text('uploaded_by').notNull() // name of the person who uploaded the invoice
+	uploaded_by: text('uploaded_by').notNull(), // name of the person who uploaded the invoice
+	created_at: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
 });
 
 // TypeScript types for type safety
