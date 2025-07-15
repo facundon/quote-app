@@ -143,11 +143,91 @@ export const actions = {
 		}
 
 		try {
+			// First, get the invoice to find the PDF path
+			const invoiceData = await db
+				.select({ pdf_path: invoice.pdf_path })
+				.from(invoice)
+				.where(eq(invoice.id, Number(id)))
+				.limit(1);
+
+			if (invoiceData.length === 0) {
+				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+			}
+
+			const pdfPath = invoiceData[0].pdf_path;
+
+			// Delete the database record
 			await db.delete(invoice).where(eq(invoice.id, Number(id)));
+
+			// Delete the PDF file if it exists
+			if (pdfPath) {
+				const fullPath = path.join(process.cwd(), pdfPath);
+				if (fs.existsSync(fullPath)) {
+					fs.unlinkSync(fullPath);
+					console.log(`PDF file deleted: ${fullPath}`);
+				}
+			}
+
 			return { type: 'success', status: 200, data: { message: 'Factura eliminada.' } };
 		} catch (error) {
 			console.error('Error deleting invoice:', error);
 			return { type: 'failure', status: 500, data: { error: 'Error al eliminar la factura.' } };
+		}
+	},
+
+	invoice_quick_paid: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+
+		if (!id) {
+			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+		}
+
+		try {
+			await db
+				.update(invoice)
+				.set({
+					payment_status: 'paid',
+					payment_date: new Date().toISOString()
+				})
+				.where(eq(invoice.id, Number(id)));
+
+			return { type: 'success', status: 200, data: { message: 'Factura marcada como pagada.' } };
+		} catch (error) {
+			console.error('Error marking invoice as paid:', error);
+			return {
+				type: 'failure',
+				status: 500,
+				data: { error: 'Error al marcar la factura como pagada.' }
+			};
+		}
+	},
+
+	invoice_quick_received: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+
+		if (!id) {
+			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+		}
+
+		try {
+			await db
+				.update(invoice)
+				.set({
+					shipping_status: 'delivered',
+					reception_date: new Date().toISOString()
+				})
+				.where(eq(invoice.id, Number(id)));
+
+			return { type: 'success', status: 200, data: { message: 'Factura marcada como recibida.' } };
+		} catch (error) {
+			console.error('Error marking invoice as received:', error);
+			return {
+				type: 'failure',
+				status: 500,
+				data: { error: 'Error al marcar la factura como recibida.' }
+			};
 		}
 	}
 };

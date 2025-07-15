@@ -29,9 +29,34 @@
 	let uploadedBy = $state(invoice.uploaded_by);
 	let paymentStatus = $state(invoice.payment_status);
 	let shippingStatus = $state(invoice.shipping_status);
-	let paymentDate = $state(invoice.payment_date || '');
-	let receptionDate = $state(invoice.reception_date || '');
+	let paymentDate = $state(formatDateForInput(invoice.payment_date));
+	let receptionDate = $state(formatDateForInput(invoice.reception_date));
 	let isSubmitting = $state(false);
+
+	// Derived states for date field visibility and disabled state
+	let isPaymentDateDisabled = $derived(paymentStatus === 'pending');
+	let isReceptionDateDisabled = $derived(shippingStatus === 'pending');
+
+	// Clear date fields when status changes to pending
+	$effect(() => {
+		if (paymentStatus === 'pending') {
+			paymentDate = '';
+		}
+	});
+
+	$effect(() => {
+		if (shippingStatus === 'pending') {
+			receptionDate = '';
+		}
+	});
+
+	// Format date for HTML date input (YYYY-MM-DD)
+	function formatDateForInput(dateString: string | null): string {
+		if (!dateString) return '';
+		const date = new Date(dateString);
+		if (isNaN(date.getTime())) return '';
+		return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+	}
 
 	// Get creation date from the created_at field
 	function getCreationDate(): string {
@@ -122,13 +147,20 @@
 				</div>
 
 				<div>
-					<label for="payment_date" class="mb-1 block text-sm font-semibold">Fecha de Pago</label>
+					<label
+						for="payment_date"
+						class="mb-1 block text-sm font-semibold {isPaymentDateDisabled ? 'text-gray-400' : ''}"
+						>Fecha de Pago</label
+					>
 					<input
 						type="date"
 						id="payment_date"
 						name="payment_date"
 						bind:value={paymentDate}
-						class="w-full rounded border px-3 py-2"
+						disabled={isPaymentDateDisabled}
+						class="w-full rounded border px-3 py-2 {isPaymentDateDisabled
+							? 'cursor-not-allowed bg-gray-100 text-gray-400'
+							: ''}"
 					/>
 				</div>
 			</div>
@@ -156,15 +188,21 @@
 				</div>
 
 				<div>
-					<label for="reception_date" class="mb-1 block text-sm font-semibold"
-						>Fecha de Recepción</label
+					<label
+						for="reception_date"
+						class="mb-1 block text-sm font-semibold {isReceptionDateDisabled
+							? 'text-gray-400'
+							: ''}">Fecha de Recepción</label
 					>
 					<input
 						type="date"
 						id="reception_date"
 						name="reception_date"
 						bind:value={receptionDate}
-						class="w-full rounded border px-3 py-2"
+						disabled={isReceptionDateDisabled}
+						class="w-full rounded border px-3 py-2 {isReceptionDateDisabled
+							? 'cursor-not-allowed bg-gray-100 text-gray-400'
+							: ''}"
 					/>
 				</div>
 			</div>

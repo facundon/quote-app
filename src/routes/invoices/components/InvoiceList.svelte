@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Menu from '$lib/components/Menu.svelte';
 
 	type Invoice = {
 		id: number;
@@ -18,26 +19,14 @@
 	let {
 		invoices,
 		onEdit,
-		onDeleted
+		onDeleted,
+		onUpdated
 	}: {
 		invoices: Invoice[];
 		onEdit: (invoice: Invoice) => void;
 		onDeleted: () => void;
+		onUpdated: () => void;
 	} = $props();
-
-	let openDropdown = $state<number | null>(null);
-
-	function toggleDropdown(id: number) {
-		openDropdown = openDropdown === id ? null : id;
-	}
-
-	// Close dropdown when clicking outside
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('.dropdown-container')) {
-			openDropdown = null;
-		}
-	}
 
 	function getStatusColor(status: string): string {
 		switch (status) {
@@ -109,7 +98,7 @@
 	}
 </script>
 
-<div class="rounded-lg border border-gray-200 bg-white" onclick={handleClickOutside}>
+<div class="rounded-lg border border-gray-200 bg-white" role="presentation">
 	<div class="border-b border-gray-200 px-6 py-4">
 		<h3 class="text-lg font-semibold text-gray-900">Facturas ({invoices.length})</h3>
 	</div>
@@ -125,48 +114,39 @@
 					<tr>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Valor</th
 						>
-							Valor
-						</th>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Proveedor</th
 						>
-							Proveedor
-						</th>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Estado de Pago</th
 						>
-							Estado de Pago
-						</th>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Estado de Envío</th
 						>
-							Estado de Envío
-						</th>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Fechas</th
 						>
-							Fechas
-						</th>
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Subido por</th
 						>
-							Subido por
-						</th>
 						<th
 							class="px-6 py-3 text-center text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Acciones</th
 						>
-							Acciones
-						</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-200 bg-white">
-					{#each invoices as invoice}
+					{#each invoices as invoice (invoice.id)}
 						<tr class="hover:bg-gray-50">
 							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm font-medium text-gray-900">
-									{formatCurrency(invoice.value)}
-								</div>
+								<div class="text-sm font-medium text-gray-900">{formatCurrency(invoice.value)}</div>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
 								<div class="text-sm text-gray-900">{invoice.provider_name || 'N/A'}</div>
@@ -175,19 +155,15 @@
 								<span
 									class="inline-flex rounded-full px-2 py-1 text-xs font-semibold {getStatusColor(
 										invoice.payment_status
-									)}"
+									)}">{getStatusLabel(invoice.payment_status)}</span
 								>
-									{getStatusLabel(invoice.payment_status)}
-								</span>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
 								<span
 									class="inline-flex rounded-full px-2 py-1 text-xs font-semibold {getShippingColor(
 										invoice.shipping_status
-									)}"
+									)}">{getShippingLabel(invoice.shipping_status)}</span
 								>
-									{getShippingLabel(invoice.shipping_status)}
-								</span>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap">
 								<div class="space-y-1 text-xs text-gray-600">
@@ -209,113 +185,100 @@
 								<div class="text-sm text-gray-900">{invoice.uploaded_by}</div>
 							</td>
 							<td class="px-6 py-4 text-center text-sm font-medium whitespace-nowrap">
-								<div class="dropdown-container relative">
-									<button
-										onclick={() => toggleDropdown(invoice.id)}
-										class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100"
-										title="Acciones"
-									>
-										<svg
-											class="h-5 w-5 text-gray-600"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-											/>
-										</svg>
-									</button>
+								<Menu
+									options={[
+										{
+											label: 'Abrir PDF',
+											icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>',
+											color: 'text-gray-700',
+											callback: () => {
+												window.open(`/facturas/${invoice.pdf_path}`, '_blank');
+											}
+										},
+										...(invoice.payment_status !== 'paid'
+											? [
+													{
+														label: 'Marcar como Pagado',
+														icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+														color: 'text-green-600',
+														callback: () => {
+															const form = document.createElement('form');
+															form.method = 'POST';
+															form.action = '?/invoice_quick_paid';
 
-									{#if openDropdown === invoice.id}
-										<div
-											class="absolute right-0 z-10 mt-2 w-48 rounded-md border border-gray-200 bg-white shadow-lg"
-										>
-											<div class="py-1">
-												<a
-													href="/facturas/{invoice.pdf_path}"
-													target="_blank"
-													class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-												>
-													<svg
-														class="mr-2 h-4 w-4 text-green-600"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														viewBox="0 0 24 24"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-														/>
-													</svg>
-													Abrir PDF
-												</a>
-												<button
-													onclick={() => onEdit(invoice)}
-													class="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-												>
-													<svg
-														class="mr-2 h-4 w-4 text-blue-600"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														viewBox="0 0 24 24"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13z"
-														/>
-													</svg>
-													Editar
-												</button>
-												<form
-													method="POST"
-													action="?/invoice_delete"
-													use:enhance={() => {
-														return async ({ result }) => {
-															if (result.type === 'success') {
-																onDeleted();
-															}
-														};
-													}}
-													class="block"
-												>
-													<input type="hidden" name="id" value={invoice.id} />
-													<button
-														type="submit"
-														class="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-														onclick={(e) => {
-															if (!confirm('¿Estás seguro de que quieres eliminar esta factura?')) {
-																e.preventDefault();
-															}
-														}}
-													>
-														<svg
-															class="mr-2 h-4 w-4"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-															viewBox="0 0 24 24"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																d="M6 18L18 6M6 6l12 12"
-															/>
-														</svg>
-														Eliminar
-													</button>
-												</form>
-											</div>
-										</div>
-									{/if}
-								</div>
+															const input = document.createElement('input');
+															input.type = 'hidden';
+															input.name = 'id';
+															input.value = invoice.id.toString();
+
+															form.appendChild(input);
+															document.body.appendChild(form);
+															form.submit();
+															document.body.removeChild(form);
+
+															onUpdated();
+														}
+													}
+												]
+											: []),
+										...(invoice.shipping_status !== 'delivered'
+											? [
+													{
+														label: 'Marcar como Entregado',
+														icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
+														color: 'text-blue-600',
+														callback: () => {
+															const form = document.createElement('form');
+															form.method = 'POST';
+															form.action = '?/invoice_quick_received';
+
+															const input = document.createElement('input');
+															input.type = 'hidden';
+															input.name = 'id';
+															input.value = invoice.id.toString();
+
+															form.appendChild(input);
+															document.body.appendChild(form);
+															form.submit();
+															document.body.removeChild(form);
+
+															onUpdated();
+														}
+													}
+												]
+											: []),
+										{
+											label: 'Editar',
+											icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13z"/></svg>',
+											color: 'text-gray-700',
+											callback: () => onEdit(invoice)
+										},
+										{
+											label: 'Eliminar',
+											icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>',
+											color: 'text-red-600',
+											callback: () => {
+												if (confirm('¿Estás seguro de que quieres eliminar esta factura?')) {
+													const form = document.createElement('form');
+													form.method = 'POST';
+													form.action = '?/invoice_delete';
+
+													const input = document.createElement('input');
+													input.type = 'hidden';
+													input.name = 'id';
+													input.value = invoice.id.toString();
+
+													form.appendChild(input);
+													document.body.appendChild(form);
+													form.submit();
+													document.body.removeChild(form);
+
+													onDeleted();
+												}
+											}
+										}
+									]}
+								/>
 							</td>
 						</tr>
 					{/each}

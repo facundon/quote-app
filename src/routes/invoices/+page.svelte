@@ -44,6 +44,13 @@
 
 	async function fetchInvoices() {
 		await invalidateAll();
+		// If we're editing an invoice, update it with fresh data
+		if (editInvoice) {
+			const updatedInvoice = invoices.find((inv) => inv.id === editInvoice!.id);
+			if (updatedInvoice) {
+				editInvoice = updatedInvoice;
+			}
+		}
 	}
 </script>
 
@@ -62,7 +69,12 @@
 			/>
 		{:else}
 			<InvoiceCreateForm {providers} onCreated={fetchInvoices} />
-			<InvoiceList {invoices} onEdit={startEdit} onDeleted={fetchInvoices} />
+			<InvoiceList
+				{invoices}
+				onEdit={startEdit}
+				onDeleted={fetchInvoices}
+				onUpdated={fetchInvoices}
+			/>
 		{/if}
 	</div>
 </div>
