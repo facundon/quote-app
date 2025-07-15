@@ -162,7 +162,7 @@
 	<div
 		bind:this={menuPanel}
 		id="menu-panel"
-		class="fixed z-[9999] w-56 origin-top-right rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none {menuDirection ===
+		class="fixed z-[9999] origin-top-right rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none {menuDirection ===
 		'up'
 			? 'origin-bottom-right'
 			: 'origin-top-right'}"

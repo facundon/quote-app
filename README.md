@@ -1,38 +1,69 @@
-# sv
+# Quote App - Laboratorio Yunes
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A comprehensive invoice management system for medical laboratories, built with SvelteKit 5 and Drizzle ORM.
 
-## Creating a project
+## Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Invoice Management**: Upload, track, and manage invoices with PDF support
+- **Provider Management**: Manage provider information and contact details
+- **Payment Tracking**: Track payment status and upload payment receipts
+- **Email Notifications**: Automatically send invoice PDFs to providers via email
+- **Quote Generation**: Generate quotes for medical studies with discount calculations
+
+## Email Configuration
+
+To enable email functionality for sending invoice PDFs to providers, you need to configure the following environment variables:
 
 ```bash
-# create a new project in the current directory
-npx sv create
+# Email Configuration
+# For Gmail, you can use:
+# SMTP_HOST=smtp.gmail.com
+# SMTP_PORT=587
+# SMTP_SECURE=false
+# SMTP_USER=your-email@gmail.com
+# SMTP_PASS=your-app-password
 
-# create a new project in my-app
-npx sv create my-app
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
 ```
 
-## Developing
+### Gmail Setup
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+1. Enable 2-factor authentication on your Gmail account
+2. Generate an App Password:
+   - Go to Google Account settings
+   - Security → 2-Step Verification → App passwords
+   - Generate a password for "Mail"
+3. Use the generated password as `SMTP_PASS`
+
+## Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-## Building
-
-To create a production version of your app:
+## Database
 
 ```bash
-npm run build
+# Push schema changes
+npm run db:push
+
+# Run migrations
+npm run db:migrate
+
+# Open database studio
+npm run db:studio
 ```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.

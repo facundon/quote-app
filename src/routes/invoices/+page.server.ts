@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { writeFile } from 'fs/promises';
+import { emailService } from '$lib/server/email';
+import { fail } from '@sveltejs/kit';
 
 export async function load({ url }) {
 	const filterStatus = url.searchParams.get('filter') || 'pending';
@@ -31,7 +33,8 @@ export async function load({ url }) {
 			provider_id: invoice.provider_id,
 			uploaded_by: invoice.uploaded_by,
 			created_at: invoice.created_at,
-			provider_name: provider.name
+			provider_name: provider.name,
+			provider_email: provider.email
 		})
 		.from(invoice)
 		.leftJoin(provider, eq(invoice.provider_id, provider.id))
@@ -52,7 +55,7 @@ export const actions = {
 		const uploaded_by = form.get('uploaded_by');
 
 		if (!pdfFile || !value || !provider_id || !uploaded_by) {
-			return { type: 'failure', status: 400, data: { error: 'Faltan campos requeridos.' } };
+			return fail(400, { error: 'Faltan campos requeridos.' });
 		}
 
 		try {
@@ -64,7 +67,7 @@ export const actions = {
 				.limit(1);
 
 			if (providerData.length === 0) {
-				return { type: 'failure', status: 400, data: { error: 'Proveedor no encontrado.' } };
+				return fail(404, { error: 'Proveedor no encontrado.' });
 			}
 
 			const providerName = providerData[0].name;
@@ -126,10 +129,10 @@ export const actions = {
 				created_at: new Date().toISOString()
 			});
 
-			return { type: 'success', status: 200, data: { message: 'Factura creada.' } };
+			return { success: true, message: 'Factura creada.' };
 		} catch (error) {
 			console.error('Error creating invoice:', error);
-			return { type: 'failure', status: 500, data: { error: 'Error al crear la factura.' } };
+			return fail(500, { error: 'Error al crear la factura.' });
 		}
 	},
 
@@ -145,7 +148,7 @@ export const actions = {
 		const paymentReceiptFile = form.get('payment_receipt') as File;
 
 		if (!id || !value || !uploaded_by || !payment_status || !shipping_status) {
-			return { type: 'failure', status: 400, data: { error: 'Faltan campos requeridos.' } };
+			return fail(400, { error: 'Faltan campos requeridos.' });
 		}
 
 		try {
@@ -161,7 +164,7 @@ export const actions = {
 				.limit(1);
 
 			if (currentInvoice.length === 0) {
-				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+				return fail(404, { error: 'Factura no encontrada.' });
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
@@ -211,10 +214,10 @@ export const actions = {
 				})
 				.where(eq(invoice.id, Number(id)));
 
-			return { type: 'success', status: 200, data: { message: 'Factura actualizada.' } };
+			return { success: true, message: 'Factura actualizada.' };
 		} catch (error) {
 			console.error('Error updating invoice:', error);
-			return { type: 'failure', status: 500, data: { error: 'Error al actualizar la factura.' } };
+			return fail(500, { error: 'Error al actualizar la factura.' });
 		}
 	},
 
@@ -223,7 +226,7 @@ export const actions = {
 		const id = form.get('id');
 
 		if (!id) {
-			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+			return fail(400, { error: 'Falta el id.' });
 		}
 
 		try {
@@ -238,7 +241,7 @@ export const actions = {
 				.limit(1);
 
 			if (invoiceData.length === 0) {
-				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+				return fail(404, { error: 'Factura no encontrada.' });
 			}
 
 			const pdfPath = invoiceData[0].pdf_path;
@@ -265,10 +268,10 @@ export const actions = {
 				}
 			}
 
-			return { type: 'success', status: 200, data: { message: 'Factura eliminada.' } };
+			return { success: true, message: 'Factura eliminada.' };
 		} catch (error) {
 			console.error('Error deleting invoice:', error);
-			return { type: 'failure', status: 500, data: { error: 'Error al eliminar la factura.' } };
+			return fail(500, { error: 'Error al eliminar la factura.' });
 		}
 	},
 
@@ -277,7 +280,7 @@ export const actions = {
 		const id = form.get('id');
 
 		if (!id) {
-			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+			return fail(400, { error: 'Falta el id.' });
 		}
 
 		try {
@@ -289,14 +292,12 @@ export const actions = {
 				})
 				.where(eq(invoice.id, Number(id)));
 
-			return { type: 'success', status: 200, data: { message: 'Factura marcada como recibida.' } };
+			return { success: true, message: 'Factura marcada como recibida.' };
 		} catch (error) {
 			console.error('Error marking invoice as received:', error);
-			return {
-				type: 'failure',
-				status: 500,
-				data: { error: 'Error al marcar la factura como recibida.' }
-			};
+			return fail(500, {
+				error: 'Error al marcar la factura como recibida.'
+			});
 		}
 	},
 
@@ -306,7 +307,7 @@ export const actions = {
 		const paymentReceiptFile = form.get('payment_receipt') as File;
 
 		if (!id || !paymentReceiptFile || paymentReceiptFile.size === 0) {
-			return { type: 'failure', status: 400, data: { error: 'Faltan campos requeridos.' } };
+			return fail(400, { error: 'Faltan campos requeridos.' });
 		}
 
 		try {
@@ -318,15 +319,13 @@ export const actions = {
 				.limit(1);
 
 			if (currentInvoice.length === 0) {
-				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+				return fail(404, { error: 'Factura no encontrada.' });
 			}
 
 			if (currentInvoice[0].payment_status !== 'paid') {
-				return {
-					type: 'failure',
-					status: 400,
-					data: { error: 'Solo se puede subir comprobante a facturas pagadas.' }
-				};
+				return fail(400, {
+					error: 'Solo se puede subir comprobante a facturas pagadas.'
+				});
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
@@ -354,14 +353,12 @@ export const actions = {
 				})
 				.where(eq(invoice.id, Number(id)));
 
-			return { type: 'success', status: 200, data: { message: 'Comprobante de pago subido.' } };
+			return { success: true, message: 'Comprobante de pago subido.' };
 		} catch (error) {
 			console.error('Error uploading payment receipt:', error);
-			return {
-				type: 'failure',
-				status: 500,
-				data: { error: 'Error al subir el comprobante de pago.' }
-			};
+			return fail(500, {
+				error: 'Error al subir el comprobante de pago.'
+			});
 		}
 	},
 
@@ -371,7 +368,7 @@ export const actions = {
 		const paymentReceiptFile = form.get('payment_receipt') as File;
 
 		if (!id) {
-			return { type: 'failure', status: 400, data: { error: 'Falta el id.' } };
+			return fail(400, { error: 'Falta el id.' });
 		}
 
 		try {
@@ -386,7 +383,7 @@ export const actions = {
 				.limit(1);
 
 			if (currentInvoice.length === 0) {
-				return { type: 'failure', status: 404, data: { error: 'Factura no encontrada.' } };
+				return fail(404, { error: 'Factura no encontrada.' });
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
@@ -420,14 +417,83 @@ export const actions = {
 				})
 				.where(eq(invoice.id, Number(id)));
 
-			return { type: 'success', status: 200, data: { message: 'Factura marcada como pagada.' } };
+			return { success: true, message: 'Factura marcada como pagada.' };
 		} catch (error) {
 			console.error('Error marking invoice as paid:', error);
-			return {
-				type: 'failure',
-				status: 500,
-				data: { error: 'Error al marcar la factura como pagada.' }
-			};
+			return fail(500, {
+				error: 'Error al marcar la factura como pagada.'
+			});
+		}
+	},
+
+	invoice_send_email: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+
+		if (!id) {
+			return fail(400, { error: 'Falta el id.' });
+		}
+
+		try {
+			// Get invoice data with provider information
+			const invoiceData = await db
+				.select({
+					id: invoice.id,
+					pdf_path: invoice.pdf_path,
+					value: invoice.value,
+					provider_id: invoice.provider_id,
+					provider_name: provider.name,
+					provider_email: provider.email,
+					provider_contact_name: provider.contact_name
+				})
+				.from(invoice)
+				.leftJoin(provider, eq(invoice.provider_id, provider.id))
+				.where(eq(invoice.id, Number(id)))
+				.limit(1);
+
+			if (invoiceData.length === 0) {
+				return fail(404, { error: 'Factura no encontrada.' });
+			}
+
+			const invoiceInfo = invoiceData[0];
+
+			// Check if provider has email
+			if (!invoiceInfo.provider_email) {
+				return fail(400, {
+					error: 'El proveedor no tiene un email configurado.'
+				});
+			}
+
+			// Send email
+			const emailResult = await emailService.sendInvoiceEmail({
+				pdfPath: invoiceInfo.pdf_path,
+				provider: {
+					id: invoiceInfo.provider_id,
+					name: invoiceInfo.provider_name || 'Proveedor',
+					email: invoiceInfo.provider_email,
+					contact_name: invoiceInfo.provider_contact_name || '',
+					address: '',
+					phone: '',
+					cbu_alias: ''
+				}
+			});
+
+			if (emailResult.success) {
+				return {
+					success: true,
+					message: 'Email enviado correctamente.'
+				};
+			} else {
+				// Return the actual error message from the email service
+				return fail(500, {
+					error: emailResult.error || 'Error al enviar email'
+				});
+			}
+		} catch (error) {
+			console.error('Error sending invoice email:', error);
+			return fail(500, {
+				error: 'Error al enviar el email.'
+			});
 		}
 	}
 };
