@@ -207,17 +207,17 @@
 											icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>',
 											color: 'text-gray-700',
 											callback: () => {
-												window.open(`/facturas/${invoice.pdf_path}`, '_blank');
+												window.open(`/${invoice.pdf_path}`, '_blank');
 											}
 										},
 										...(invoice.payment_receipt_path
 											? [
 													{
-														label: 'Ver Recibo de Pago',
-														icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 6v12a3 3 0 103-3H6a3 3 0 10-3 3V6a3 3 0 103-3"/></svg>',
+														label: 'Ver Comprobante',
+														icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
 														color: 'text-gray-700',
 														callback: () => {
-															window.open(`/facturas/${invoice.payment_receipt_path}`, '_blank');
+															window.open(`/${invoice.payment_receipt_path}`, '_blank');
 														}
 													}
 												]
@@ -262,8 +262,8 @@
 											: []),
 										{
 											label: 'Editar',
-											icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13z"/></svg>',
-											color: 'text-gray-700',
+											icon: '<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>',
+											color: 'text-blue-600',
 											callback: () => onEdit(invoice)
 										},
 										{
