@@ -34,7 +34,7 @@
 	<div class="flex h-full flex-col">
 		<!-- Header -->
 		<div class="border-b border-gray-200 p-6">
-			<h1 class="text-xl font-bold text-blue-900">Quote App</h1>
+			<h1 class="text-xl font-bold text-blue-900">Laboratorio Yunes</h1>
 		</div>
 
 		<!-- Navigation Items -->
@@ -69,11 +69,6 @@
 				<span class="mr-3 text-lg">{adminItem.icon}</span>
 				<span class="font-medium">{adminItem.label}</span>
 			</button>
-		</div>
-
-		<!-- Footer -->
-		<div class="border-t border-gray-200 p-4">
-			<div class="text-center text-sm text-gray-500">© 2024 Quote App</div>
 		</div>
 	</div>
 </nav>

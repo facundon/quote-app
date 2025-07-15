@@ -2,6 +2,7 @@
 	import CategoriesTab from './categories/CategoriesTab.svelte';
 	import StudiesTab from './studies/StudiesTab.svelte';
 	import DiscountsTab from './discounts/DiscountsTab.svelte';
+	import ProvidersTab from './providers/ProvidersTab.svelte';
 	import { fly } from 'svelte/transition';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
@@ -12,11 +13,12 @@
 	const TABS = {
 		CATEGORIES: 'categories',
 		STUDIES: 'studies',
-		DISCOUNTS: 'discounts'
+		DISCOUNTS: 'discounts',
+		PROVIDERS: 'providers'
 	} as const;
 
 	type TabKey = (typeof TABS)[keyof typeof TABS];
-	const TAB_ORDER: TabKey[] = [TABS.CATEGORIES, TABS.STUDIES, TABS.DISCOUNTS];
+	const TAB_ORDER: TabKey[] = [TABS.CATEGORIES, TABS.STUDIES, TABS.DISCOUNTS, TABS.PROVIDERS];
 
 	let activeTab = $state<TabKey>(TABS.CATEGORIES);
 	// svelte-ignore non_reactive_update
@@ -28,6 +30,8 @@
 	let categories = $derived(data.categories);
 	let studies = $derived(data.studies);
 	let discounts = $derived(data.discounts);
+	let providers = $derived(data.providers);
+	let invoices = $derived(data.invoices);
 
 	function setTab(tab: TabKey) {
 		const newIndex = TAB_ORDER.indexOf(tab);
@@ -67,7 +71,7 @@
 					class:!border-blue-600={activeTab === TABS.CATEGORIES}
 					class:text-blue-900={activeTab === TABS.CATEGORIES}
 					class:font-semibold={activeTab === TABS.CATEGORIES}
-					class:text-slate-400={activeTab !== TABS.CATEGORIES}
+					class:text-gray-700={activeTab !== TABS.CATEGORIES}
 					class:font-normal={activeTab !== TABS.CATEGORIES}
 					onclick={() => setTab(TABS.CATEGORIES)}
 				>
@@ -81,7 +85,7 @@
 					class:!border-blue-600={activeTab === TABS.STUDIES}
 					class:text-blue-900={activeTab === TABS.STUDIES}
 					class:font-semibold={activeTab === TABS.STUDIES}
-					class:text-slate-400={activeTab !== TABS.STUDIES}
+					class:text-gray-700={activeTab !== TABS.STUDIES}
 					class:font-normal={activeTab !== TABS.STUDIES}
 					onclick={() => setTab(TABS.STUDIES)}
 				>
@@ -101,6 +105,20 @@
 				>
 					Descuentos
 				</button>
+				<button
+					class="tab-btn relative flex-1 rounded-t-md px-4 py-2 transition-colors duration-200 focus:outline-none"
+					class:bg-white={activeTab === TABS.PROVIDERS}
+					class:shadow-md={activeTab === TABS.PROVIDERS}
+					class:!border-b-4={activeTab === TABS.PROVIDERS}
+					class:!border-blue-600={activeTab === TABS.PROVIDERS}
+					class:text-blue-900={activeTab === TABS.PROVIDERS}
+					class:font-semibold={activeTab === TABS.PROVIDERS}
+					class:text-gray-700={activeTab !== TABS.PROVIDERS}
+					class:font-normal={activeTab !== TABS.PROVIDERS}
+					onclick={() => setTab(TABS.PROVIDERS)}
+				>
+					Proveedores
+				</button>
 			</div>
 
 			<div class="relative">
@@ -118,6 +136,10 @@
 							<div out:fly={{ x: -direction * 300, duration: 250 }}>
 								<DiscountsTab {discounts} {categories} />
 							</div>
+						{:else if prevTab === TABS.PROVIDERS}
+							<div out:fly={{ x: -direction * 300, duration: 250 }}>
+								<ProvidersTab {providers} {invoices} />
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -132,6 +154,10 @@
 				{:else if activeTab === TABS.DISCOUNTS}
 					<div in:fly={{ x: direction * 300, duration: 250 }}>
 						<DiscountsTab {discounts} {categories} />
+					</div>
+				{:else if activeTab === TABS.PROVIDERS}
+					<div in:fly={{ x: direction * 300, duration: 250 }}>
+						<ProvidersTab {providers} {invoices} />
 					</div>
 				{/if}
 			</div>

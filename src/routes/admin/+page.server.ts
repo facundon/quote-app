@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { category, study, discount } from '$lib/server/db/schema';
+import { category, study, discount, provider, invoice } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 
@@ -24,7 +24,14 @@ export async function load() {
 		})
 		.from(discount)
 		.leftJoin(category, eq(discount.category_id, category.id));
-	return { categories, studies, discounts };
+	const providers = await db.select().from(provider);
+	const invoices = await db
+		.select({
+			id: invoice.id,
+			provider_id: invoice.provider_id
+		})
+		.from(invoice);
+	return { categories, studies, discounts, providers, invoices };
 }
 
 export const actions = {
@@ -174,6 +181,74 @@ export const actions = {
 			return { success: true };
 		} catch {
 			return fail(500, { error: 'Error al eliminar el descuento.' });
+		}
+	},
+	// Proveedores
+	provider_create: async ({ request }) => {
+		const form = await request.formData();
+		const name = form.get('name');
+		const address = form.get('address');
+		const phone = form.get('phone');
+		const email = form.get('email');
+		const cbu_alias = form.get('cbu_alias');
+		const contact_name = form.get('contact_name');
+		if (!name || !address || !phone || !email || !cbu_alias || !contact_name) {
+			return fail(400, { error: 'Faltan campos requeridos.' });
+		}
+		try {
+			await db.insert(provider).values({
+				name: String(name),
+				address: String(address),
+				phone: String(phone),
+				email: String(email),
+				cbu_alias: String(cbu_alias),
+				contact_name: String(contact_name)
+			});
+			return { success: true };
+		} catch {
+			return fail(500, { error: 'Error al crear el proveedor.' });
+		}
+	},
+	provider_edit: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		const name = form.get('name');
+		const address = form.get('address');
+		const phone = form.get('phone');
+		const email = form.get('email');
+		const cbu_alias = form.get('cbu_alias');
+		const contact_name = form.get('contact_name');
+		if (!id || !name || !address || !phone || !email || !cbu_alias || !contact_name) {
+			return fail(400, { error: 'Faltan campos requeridos.' });
+		}
+		try {
+			await db
+				.update(provider)
+				.set({
+					name: String(name),
+					address: String(address),
+					phone: String(phone),
+					email: String(email),
+					cbu_alias: String(cbu_alias),
+					contact_name: String(contact_name)
+				})
+				.where(eq(provider.id, Number(id)));
+			return { success: true };
+		} catch {
+			return fail(500, { error: 'Error al editar el proveedor.' });
+		}
+	},
+	provider_delete: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		if (!id) {
+			return fail(400, { error: 'Falta el id.' });
+		}
+		try {
+			await db.delete(provider).where(eq(provider.id, Number(id)));
+			return { success: true };
+		} catch {
+			return fail(500, { error: 'Error al eliminar el proveedor.' });
 		}
 	}
 };
