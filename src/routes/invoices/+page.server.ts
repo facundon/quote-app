@@ -214,9 +214,12 @@ export const actions = {
 		}
 
 		try {
-			// First, get the invoice to find the PDF path
+			// First, get the invoice to find the PDF and payment receipt paths
 			const invoiceData = await db
-				.select({ pdf_path: invoice.pdf_path })
+				.select({
+					pdf_path: invoice.pdf_path,
+					payment_receipt_path: invoice.payment_receipt_path
+				})
 				.from(invoice)
 				.where(eq(invoice.id, Number(id)))
 				.limit(1);
@@ -226,16 +229,26 @@ export const actions = {
 			}
 
 			const pdfPath = invoiceData[0].pdf_path;
+			const paymentReceiptPath = invoiceData[0].payment_receipt_path;
 
 			// Delete the database record
 			await db.delete(invoice).where(eq(invoice.id, Number(id)));
 
 			// Delete the PDF file if it exists
 			if (pdfPath) {
-				const fullPath = path.join(process.cwd(), pdfPath);
-				if (fs.existsSync(fullPath)) {
-					fs.unlinkSync(fullPath);
-					console.log(`PDF file deleted: ${fullPath}`);
+				const fullPdfPath = path.join(process.cwd(), pdfPath);
+				if (fs.existsSync(fullPdfPath)) {
+					fs.unlinkSync(fullPdfPath);
+					console.log(`PDF file deleted: ${fullPdfPath}`);
+				}
+			}
+
+			// Delete the payment receipt file if it exists
+			if (paymentReceiptPath) {
+				const fullReceiptPath = path.join(process.cwd(), paymentReceiptPath);
+				if (fs.existsSync(fullReceiptPath)) {
+					fs.unlinkSync(fullReceiptPath);
+					console.log(`Payment receipt file deleted: ${fullReceiptPath}`);
 				}
 			}
 

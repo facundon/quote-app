@@ -189,9 +189,6 @@
 							existingFileName={invoice.payment_receipt_path ? 'Comprobante de pago subido' : null}
 							onFileSelected={handleFileSelected}
 						/>
-						{#if invoice.payment_receipt_path}
-							<p class="mt-1 text-sm text-green-600">✓ Comprobante de pago subido</p>
-						{/if}
 					{:else}
 						<div class="rounded border bg-gray-100 px-3 py-2">
 							<span class="text-sm text-gray-500"

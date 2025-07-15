@@ -215,7 +215,7 @@
 													{
 														label: 'Ver Recibo de Pago',
 														icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 6v12a3 3 0 103-3H6a3 3 0 10-3 3V6a3 3 0 103-3"/></svg>',
-														color: 'text-blue-600',
+														color: 'text-gray-700',
 														callback: () => {
 															window.open(`/facturas/${invoice.payment_receipt_path}`, '_blank');
 														}

@@ -17,6 +17,7 @@
 
 	let isOpen = $state(open);
 	let menuPosition = $state({ top: 0, left: 0 });
+	let menuDirection = $state<'down' | 'up'>('down');
 
 	function openMenu() {
 		isOpen = true;
@@ -34,12 +35,30 @@
 	}
 
 	function updateMenuPosition() {
-		if (menuButton) {
+		if (menuButton && menuPanel) {
 			const rect = menuButton.getBoundingClientRect();
-			menuPosition = {
-				top: rect.bottom + window.scrollY,
-				left: rect.right - 224 // 56 * 4 (w-56 = 14rem = 224px)
-			};
+			const menuHeight = menuPanel.offsetHeight;
+			const windowHeight = window.innerHeight;
+			const scrollY = window.scrollY;
+
+			// Check if there's enough space below the button
+			const spaceBelow = windowHeight - rect.bottom;
+			const spaceAbove = rect.top;
+
+			// Determine if menu should go up or down
+			if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+				menuDirection = 'up';
+				menuPosition = {
+					top: rect.top + scrollY - menuHeight,
+					left: rect.right - 224 // 56 * 4 (w-56 = 14rem = 224px)
+				};
+			} else {
+				menuDirection = 'down';
+				menuPosition = {
+					top: rect.bottom + scrollY,
+					left: rect.right - 224 // 56 * 4 (w-56 = 14rem = 224px)
+				};
+			}
 		}
 	}
 
@@ -105,6 +124,8 @@
 					menuPanel?.querySelectorAll('button, [tabindex]:not([tabindex="-1"])') ?? []
 				);
 				menuItems[0]?.focus();
+				// Update position after menu is rendered to get accurate height
+				updateMenuPosition();
 			});
 		}
 	});
@@ -141,7 +162,10 @@
 	<div
 		bind:this={menuPanel}
 		id="menu-panel"
-		class="fixed z-[9999] w-56 origin-top-right rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none"
+		class="fixed z-[9999] w-56 origin-top-right rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none {menuDirection ===
+		'up'
+			? 'origin-bottom-right'
+			: 'origin-top-right'}"
 		style="top: {menuPosition.top}px; left: {menuPosition.left}px;"
 		role="menu"
 		tabindex="-1"
