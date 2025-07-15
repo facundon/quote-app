@@ -1,7 +1,13 @@
 <script lang="ts">
 	import '../app.css';
-	
+	import SideNav from '$lib/components/SideNav.svelte';
+
 	let { children } = $props();
 </script>
 
-{@render children()}
+<div class="flex min-h-screen bg-gray-50">
+	<SideNav />
+	<main class="ml-64 flex-1 p-8">
+		{@render children()}
+	</main>
+</div>

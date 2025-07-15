@@ -128,10 +128,8 @@
 	}
 </script>
 
-<div
-	class="flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-100 to-blue-50 px-2 py-8"
->
-	<div class="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-2xl">
+<div class="mx-auto max-w-4xl">
+	<div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl">
 		<h2 class="mb-6 text-center text-3xl font-extrabold tracking-tight text-blue-900">
 			Presupuesto
 		</h2>
