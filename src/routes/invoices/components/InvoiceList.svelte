@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import Menu from '$lib/components/Menu.svelte';
 	import MarkAsPaidModal from '$lib/components/MarkAsPaidModal.svelte';
 
@@ -20,11 +21,13 @@
 
 	let {
 		invoices,
+		filterStatus,
 		onEdit,
 		onDeleted,
 		onUpdated
 	}: {
 		invoices: Invoice[];
+		filterStatus: string;
 		onEdit: (invoice: Invoice) => void;
 		onDeleted: () => void;
 		onUpdated: () => void;
@@ -41,6 +44,16 @@
 	function closeReceiptModal() {
 		showReceiptModal = false;
 		selectedInvoice = null;
+	}
+
+	function handleFilterChange(event: Event) {
+		const target = event.target as HTMLSelectElement;
+		const newFilter = target.value;
+
+		// Update URL with new filter parameter
+		const url = new URL(window.location.href);
+		url.searchParams.set('filter', newFilter);
+		goto(url.toString(), { replaceState: true });
 	}
 
 	function getStatusColor(status: string): string {
@@ -115,12 +128,35 @@
 
 <div class="rounded-lg border border-gray-200 bg-white" role="presentation">
 	<div class="border-b border-gray-200 px-6 py-4">
-		<h3 class="text-lg font-semibold text-gray-900">Facturas ({invoices.length})</h3>
+		<div class="flex items-center justify-between">
+			<h3 class="text-lg font-semibold text-gray-900">
+				Facturas ({invoices.length})
+			</h3>
+			<div class="flex items-center space-x-2">
+				<label for="status-filter" class="text-sm font-medium text-gray-700">Filtrar por:</label>
+				<select
+					id="status-filter"
+					value={filterStatus}
+					onchange={handleFilterChange}
+					class="rounded-md border border-gray-300 bg-white py-1 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+				>
+					<option value="pending">Pendientes</option>
+					<option value="paid">Pagadas</option>
+					<option value="all">Todas</option>
+				</select>
+			</div>
+		</div>
 	</div>
 
 	{#if invoices.length === 0}
 		<div class="px-6 py-8 text-center text-gray-500">
-			<p>No hay facturas registradas.</p>
+			<p>
+				{filterStatus === 'all'
+					? 'No hay facturas registradas.'
+					: filterStatus === 'paid'
+						? 'No hay facturas pagadas.'
+						: 'No hay facturas pendientes.'}
+			</p>
 		</div>
 	{:else}
 		<div class="overflow-x-auto">

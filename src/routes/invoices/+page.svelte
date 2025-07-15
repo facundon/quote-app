@@ -7,6 +7,7 @@
 	type Invoice = {
 		id: number;
 		pdf_path: string;
+		payment_receipt_path: string | null;
 		value: number;
 		payment_status: string;
 		shipping_status: string;
@@ -32,6 +33,7 @@
 
 	let invoices = $derived(data.invoices);
 	let providers = $derived(data.providers);
+	let filterStatus = $derived(data.filterStatus);
 	let editInvoice = $state<Invoice | null>(null);
 
 	function startEdit(invoice: Invoice) {
@@ -71,6 +73,7 @@
 			<InvoiceCreateForm {providers} onCreated={fetchInvoices} />
 			<InvoiceList
 				{invoices}
+				{filterStatus}
 				onEdit={startEdit}
 				onDeleted={fetchInvoices}
 				onUpdated={fetchInvoices}

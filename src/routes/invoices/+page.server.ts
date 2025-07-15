@@ -5,7 +5,19 @@ import fs from 'fs';
 import path from 'path';
 import { writeFile } from 'fs/promises';
 
-export async function load() {
+export async function load({ url }) {
+	const filterStatus = url.searchParams.get('filter') || 'pending';
+
+	let whereCondition = undefined;
+
+	// Apply filter based on payment status
+	if (filterStatus === 'paid') {
+		whereCondition = eq(invoice.payment_status, 'paid');
+	} else if (filterStatus === 'pending') {
+		whereCondition = eq(invoice.payment_status, 'pending');
+	}
+	// For 'all', no where condition is applied
+
 	const invoices = await db
 		.select({
 			id: invoice.id,
@@ -22,11 +34,12 @@ export async function load() {
 			provider_name: provider.name
 		})
 		.from(invoice)
-		.leftJoin(provider, eq(invoice.provider_id, provider.id));
+		.leftJoin(provider, eq(invoice.provider_id, provider.id))
+		.where(whereCondition);
 
 	const providers = await db.select().from(provider);
 
-	return { invoices, providers };
+	return { invoices, providers, filterStatus };
 }
 
 export const actions = {
