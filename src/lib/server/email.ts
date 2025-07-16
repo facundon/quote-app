@@ -2,6 +2,9 @@ import nodemailer from 'nodemailer';
 import type { Provider } from '$lib/server/db/schema';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 interface EmailConfig {
 	host: string;

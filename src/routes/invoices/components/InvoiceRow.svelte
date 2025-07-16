@@ -121,8 +121,8 @@
 			const result = await response.json();
 
 			if (result.type === 'failure') {
-				console.log(JSON.parse(result.data));
-				const errorMessage = JSON.parse(result.data)[1] || 'Error al enviar email';
+				const errorMessage =
+					result.data.error || JSON.parse(result.data)[1] || 'Error al enviar email';
 				onEmailSent({ type: 'error', text: errorMessage });
 			} else {
 				console.log('Sending success message');
