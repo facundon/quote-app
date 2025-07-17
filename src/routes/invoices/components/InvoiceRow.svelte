@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Menu from '$lib/components/Menu.svelte';
+	import { enhance } from '$app/forms';
 
 	type Invoice = {
 		id: number;
@@ -100,7 +101,7 @@
 	function getShippingLabel(status: string): string {
 		switch (status) {
 			case 'delivered':
-				return 'Entregado';
+				return 'Recibido';
 			case 'pending':
 				return 'Pendiente';
 			default:
@@ -132,6 +133,52 @@
 			// Handle network/connection errors
 			console.error('Email send error:', error);
 			onEmailSent({ type: 'error', text: 'Error de conexión' });
+		}
+	}
+
+	async function markAsReceived() {
+		try {
+			const formData = new FormData();
+			formData.append('id', invoice.id.toString());
+
+			const response = await fetch('?/invoice_quick_received', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+
+			if (result.success || response.ok) {
+				onUpdated();
+			} else {
+				console.error('Error marking as received:', result.error || 'Unknown error');
+			}
+		} catch (error) {
+			console.error('Error marking as received:', error);
+		}
+	}
+
+	async function deleteInvoice() {
+		if (confirm('¿Estás seguro de que quieres eliminar esta factura?')) {
+			try {
+				const formData = new FormData();
+				formData.append('id', invoice.id.toString());
+
+				const response = await fetch('?/invoice_delete', {
+					method: 'POST',
+					body: formData
+				});
+
+				const result = await response.json();
+
+				if (result.success || response.ok) {
+					onDeleted();
+				} else {
+					console.error('Error deleting invoice:', result.error || 'Unknown error');
+				}
+			} catch (error) {
+				console.error('Error deleting invoice:', error);
+			}
 		}
 	}
 
@@ -174,31 +221,17 @@
 		// Add mark as delivered option if not delivered
 		if (invoice.shipping_status !== 'delivered') {
 			options.push({
-				label: 'Marcar como Entregado',
+				label: 'Marcar como Recibido',
 				icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
 				color: 'text-blue-600',
 				callback: () => {
-					const form = document.createElement('form');
-					form.method = 'POST';
-					form.action = '?/invoice_quick_received';
-
-					const input = document.createElement('input');
-					input.type = 'hidden';
-					input.name = 'id';
-					input.value = invoice.id.toString();
-
-					form.appendChild(input);
-					document.body.appendChild(form);
-					form.submit();
-					document.body.removeChild(form);
-
-					onUpdated();
+					markAsReceived();
 				}
 			});
 		}
 
 		// Add email option if provider has email
-		if (invoice.provider_email) {
+		if (invoice.payment_receipt_path && invoice.provider_email) {
 			options.push({
 				label: sendingEmail === invoice.id ? 'Enviando...' : 'Enviar Comprobante por Email',
 				icon:
@@ -232,23 +265,7 @@
 			icon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>',
 			color: 'text-red-600',
 			callback: () => {
-				if (confirm('¿Estás seguro de que quieres eliminar esta factura?')) {
-					const form = document.createElement('form');
-					form.method = 'POST';
-					form.action = '?/invoice_delete';
-
-					const input = document.createElement('input');
-					input.type = 'hidden';
-					input.name = 'id';
-					input.value = invoice.id.toString();
-
-					form.appendChild(input);
-					document.body.appendChild(form);
-					form.submit();
-					document.body.removeChild(form);
-
-					onDeleted();
-				}
+				deleteInvoice();
 			}
 		});
 

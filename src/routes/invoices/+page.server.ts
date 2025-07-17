@@ -103,7 +103,7 @@ export const actions = {
 
 			// Handle payment receipt file if provided
 			let paymentReceiptPath: string | null = null;
-			if (paymentReceiptFile) {
+			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
 				// Generate receipt filename with _comprobante suffix
 				const receiptOriginalName = paymentReceiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
 				const receiptFileName = `${timestamp}_${receiptOriginalName.replace('.pdf', '_comprobante.pdf')}`;
@@ -260,7 +260,7 @@ export const actions = {
 			}
 
 			// Delete the payment receipt file if it exists
-			if (paymentReceiptPath) {
+			if (paymentReceiptPath && paymentReceiptPath.length > 0) {
 				const fullReceiptPath = path.join(process.cwd(), paymentReceiptPath);
 				if (fs.existsSync(fullReceiptPath)) {
 					fs.unlinkSync(fullReceiptPath);
