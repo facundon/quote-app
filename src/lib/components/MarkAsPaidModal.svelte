@@ -78,7 +78,7 @@
 				name="payment_receipt"
 				accept=".pdf"
 				required={false}
-				placeholder="Seleccionar archivo (opcional)"
+				placeholder="Seleccionar o arrastrar archivo (opcional)"
 				selectedFileName={receiptFile?.name}
 				onFileSelected={handleReceiptFileSelected}
 			/>

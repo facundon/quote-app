@@ -56,9 +56,11 @@
 	// Format date for HTML date input (YYYY-MM-DD)
 	function formatDateForInput(dateString: string | null): string {
 		if (!dateString) return '';
+		// If already in YYYY-MM-DD, return as is
+		if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
 		const date = new Date(dateString);
 		if (isNaN(date.getTime())) return '';
-		return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+		return date.toISOString().split('T')[0];
 	}
 
 	// Get creation date from the created_at field
@@ -182,9 +184,8 @@
 						<FilePicker
 							id="payment_receipt"
 							name="payment_receipt"
-							accept=".pdf"
+							accept=".pdf,image/*"
 							required={false}
-							placeholder="Seleccionar archivo"
 							selectedFileName={paymentReceiptFile?.name}
 							existingFileName={invoice.payment_receipt_path ? 'Comprobante de pago subido' : null}
 							onFileSelected={handleFileSelected}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	type MenuOption = {
 		label: string;
@@ -17,49 +17,59 @@
 
 	let isOpen = $state(open);
 	let menuPosition = $state({ top: 0, left: 0 });
-	let menuDirection = $state<'down' | 'up'>('down');
 
 	function openMenu() {
 		isOpen = true;
-		updateMenuPosition();
-		tick().then(() => {
-			menuItems[0]?.focus();
-		});
 	}
+
 	function closeMenu() {
 		isOpen = false;
 		menuButton?.focus();
 	}
+
 	function toggleMenu() {
 		isOpen ? closeMenu() : openMenu();
 	}
 
 	function updateMenuPosition() {
-		if (menuButton && menuPanel) {
-			const rect = menuButton.getBoundingClientRect();
-			const menuHeight = menuPanel.offsetHeight;
-			const windowHeight = window.innerHeight;
-			const scrollY = window.scrollY;
+		if (!menuButton || !menuPanel) return;
 
-			// Check if there's enough space below the button
-			const spaceBelow = windowHeight - rect.bottom;
-			const spaceAbove = rect.top;
+		const rect = menuButton.getBoundingClientRect();
+		const menuHeight = menuPanel.offsetHeight;
+		const menuWidth = menuPanel.offsetWidth;
+		const windowHeight = window.innerHeight;
+		const windowWidth = window.innerWidth;
 
-			// Determine if menu should go up or down
-			if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
-				menuDirection = 'up';
-				menuPosition = {
-					top: rect.top + scrollY - menuHeight,
-					left: rect.right - 224 // 56 * 4 (w-56 = 14rem = 224px)
-				};
-			} else {
-				menuDirection = 'down';
-				menuPosition = {
-					top: rect.bottom + scrollY,
-					left: rect.right - 224 // 56 * 4 (w-56 = 14rem = 224px)
-				};
-			}
+		// Calculate available space
+		const spaceBelow = windowHeight - rect.bottom;
+		const spaceAbove = rect.top;
+
+		// Determine if menu should go up or down
+		const shouldGoUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+		// Calculate vertical position
+		let top: number;
+		if (shouldGoUp) {
+			top = rect.top - menuHeight;
+		} else {
+			top = rect.bottom;
 		}
+
+		// Calculate horizontal position - align to button
+		let left: number;
+		if (rect.left + menuWidth <= windowWidth) {
+			// Enough space on the right, align to left edge of button
+			left = rect.left;
+		} else {
+			// Not enough space, align to right edge of button
+			left = rect.right - menuWidth;
+		}
+
+		// Ensure menu doesn't go outside viewport
+		left = Math.max(0, Math.min(left, windowWidth - menuWidth));
+		top = Math.max(0, Math.min(top, windowHeight - menuHeight));
+
+		menuPosition = { top, left };
 	}
 
 	function handleTriggerKeydown(e: KeyboardEvent) {
@@ -68,6 +78,7 @@
 			openMenu();
 		}
 	}
+
 	function handleMenuKeydown(e: KeyboardEvent) {
 		const idx = menuItems.findIndex((el) => el === document.activeElement);
 		if (e.key === 'ArrowDown') {
@@ -83,6 +94,7 @@
 			closeMenu();
 		}
 	}
+
 	function handleClickOutside(e: MouseEvent) {
 		if (
 			isOpen &&
@@ -106,6 +118,13 @@
 		// Create portal container
 		portalContainer = document.createElement('div');
 		portalContainer.id = 'menu-portal';
+		portalContainer.style.position = 'fixed';
+		portalContainer.style.top = '0';
+		portalContainer.style.left = '0';
+		portalContainer.style.width = '100%';
+		portalContainer.style.height = '100%';
+		portalContainer.style.pointerEvents = 'none';
+		portalContainer.style.zIndex = '9999';
 		document.body.appendChild(portalContainer);
 
 		return () => {
@@ -117,15 +136,19 @@
 			}
 		};
 	});
+
 	$effect(() => {
-		if (isOpen) {
+		if (isOpen && menuPanel) {
+			// Update position after menu is rendered
 			tick().then(() => {
-				menuItems = Array.from(
-					menuPanel?.querySelectorAll('button, [tabindex]:not([tabindex="-1"])') ?? []
-				);
-				menuItems[0]?.focus();
-				// Update position after menu is rendered to get accurate height
 				updateMenuPosition();
+				// Focus first item after position is set
+				tick().then(() => {
+					menuItems = Array.from(
+						menuPanel?.querySelectorAll('button, [tabindex]:not([tabindex="-1"])') ?? []
+					);
+					menuItems[0]?.focus();
+				});
 			});
 		}
 	});
@@ -135,7 +158,7 @@
 	<button
 		bind:this={menuButton}
 		type="button"
-		class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100"
+		class="flex h-8 w-8 items-center justify-center cursor-pointer rounded-full hover:bg-gray-100"
 		aria-label="Acciones"
 		aria-haspopup="menu"
 		aria-expanded={isOpen}
@@ -162,11 +185,8 @@
 	<div
 		bind:this={menuPanel}
 		id="menu-panel"
-		class="fixed z-[9999] origin-top-right rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none {menuDirection ===
-		'up'
-			? 'origin-bottom-right'
-			: 'origin-top-right'}"
-		style="top: {menuPosition.top}px; left: {menuPosition.left}px;"
+		class="fixed z-[9999] rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none min-w-[200px]"
+		style="top: {menuPosition.top}px; left: {menuPosition.left}px; pointer-events: auto;"
 		role="menu"
 		tabindex="-1"
 		onkeydown={handleMenuKeydown}

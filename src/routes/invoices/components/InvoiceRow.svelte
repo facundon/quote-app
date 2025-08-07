@@ -49,14 +49,18 @@
 
 	function formatDate(dateString: string | null): string {
 		if (!dateString) return '-';
-		const date = new Date(dateString);
+		// Parse as local date (YYYY-MM-DD)
+		const [year, month, day] = dateString.split('-').map(Number);
+		const date = new Date(year, month - 1, day);
 		if (isNaN(date.getTime())) return '-';
 		return date.toLocaleDateString('es-AR');
 	}
 
 	function getCreationDate(createdAt: string | null): string {
 		if (!createdAt) return '-';
-		const date = new Date(createdAt);
+		// Parse as local date (YYYY-MM-DD)
+		const [year, month, day] = createdAt.split('-').map(Number);
+		const date = new Date(year, month - 1, day);
 		if (isNaN(date.getTime())) return '-';
 		return date.toLocaleDateString('es-AR');
 	}

@@ -122,9 +122,8 @@
 				<FilePicker
 					id="pdf"
 					name="pdf"
-					accept=".pdf"
+					accept=".pdf,image/*"
 					required={true}
-					placeholder="Seleccionar archivo"
 					selectedFileName={pdfFile?.name}
 					onFileSelected={handleFileSelected}
 				/>
@@ -137,9 +136,8 @@
 				<FilePicker
 					id="payment_receipt"
 					name="payment_receipt"
-					accept=".pdf"
+					accept=".pdf,image/*"
 					required={false}
-					placeholder="Seleccionar archivo"
 					selectedFileName={paymentReceiptFile?.name}
 					onFileSelected={handleFileSelected}
 				/>

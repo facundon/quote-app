@@ -6,8 +6,31 @@ import path from 'path';
 import { writeFile } from 'fs/promises';
 import { emailService } from '$lib/server/email';
 import { fail } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export async function load({ url }) {
+// Allowed file types for uploads
+const allowedMimeTypes = [
+	'application/pdf',
+	'image/jpeg',
+	'image/png',
+	'image/gif',
+	'image/bmp',
+	'image/webp'
+];
+
+function getExtensionFromMimeType(mimeType: string): string {
+	const map: Record<string, string> = {
+		'application/pdf': '.pdf',
+		'image/jpeg': '.jpg',
+		'image/png': '.png',
+		'image/gif': '.gif',
+		'image/bmp': '.bmp',
+		'image/webp': '.webp'
+	};
+	return map[mimeType] || '';
+}
+
+export async function load({ url }: { url: URL }) {
 	const filterStatus = url.searchParams.get('filter') || 'pending';
 
 	let whereCondition = undefined;
@@ -46,7 +69,7 @@ export async function load({ url }) {
 }
 
 export const actions = {
-	invoice_create: async ({ request }) => {
+	invoice_create: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const pdfFile = form.get('pdf') as File;
 		const paymentReceiptFile = form.get('payment_receipt') as File;
@@ -87,8 +110,14 @@ export const actions = {
 				fs.mkdirSync(providerDir, { recursive: true });
 			}
 
-			// Generate unique filename with timestamp
+			// Validate file type for invoice file
+			if (!allowedMimeTypes.includes(pdfFile.type)) {
+				return fail(400, { error: 'Tipo de archivo de factura no soportado. Solo PDF o imágenes.' });
+			}
+
+			// Generate unique filename with timestamp and correct extension
 			const timestamp = new Date().getTime();
+			const extension = getExtensionFromMimeType(pdfFile.type);
 			const originalName = pdfFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
 			const fileName = `${timestamp}_${originalName}`;
 			const filePath = path.join(providerDir, fileName);
@@ -104,9 +133,12 @@ export const actions = {
 			// Handle payment receipt file if provided
 			let paymentReceiptPath: string | null = null;
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
-				// Generate receipt filename with _comprobante suffix
+				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
+					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+				}
+				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const receiptOriginalName = paymentReceiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-				const receiptFileName = `${timestamp}_${receiptOriginalName.replace('.pdf', '_comprobante.pdf')}`;
+				const receiptFileName = `${timestamp}_${receiptOriginalName.replace(/(\.[^.]+)$/, `_comprobante${receiptExtension}`)}`;
 				const receiptFilePath = path.join(providerDir, receiptFileName);
 
 				// Convert File to Buffer and save
@@ -136,7 +168,7 @@ export const actions = {
 		}
 	},
 
-	invoice_edit: async ({ request }) => {
+	invoice_edit: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 		const value = form.get('value');
@@ -184,12 +216,14 @@ export const actions = {
 
 			// Handle payment receipt file if provided
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
-				// Extract the base path from the current PDF path
+				// Validate file type for payment receipt if provided
+				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
+					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+				}
+				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
 				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
-
-				// Generate receipt filename with _comprobante suffix
-				const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 
 				// Convert File to Buffer and save
@@ -221,7 +255,7 @@ export const actions = {
 		}
 	},
 
-	invoice_delete: async ({ request }) => {
+	invoice_delete: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 
@@ -275,7 +309,7 @@ export const actions = {
 		}
 	},
 
-	invoice_quick_received: async ({ request }) => {
+	invoice_quick_received: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 
@@ -301,7 +335,7 @@ export const actions = {
 		}
 	},
 
-	invoice_upload_receipt: async ({ request }) => {
+	invoice_upload_receipt: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 		const paymentReceiptFile = form.get('payment_receipt') as File;
@@ -330,12 +364,17 @@ export const actions = {
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
 
-			// Extract the base path from the current PDF path
+			// Validate file type for payment receipt if provided
+			if (!paymentReceiptFile || paymentReceiptFile.size === 0) {
+				return fail(400, { error: 'Faltan campos requeridos.' });
+			}
+			if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
+				return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+			}
+			const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 			const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
 			const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
-
-			// Generate receipt filename with _comprobante suffix
-			const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+			const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 			const receiptFilePath = path.join(pdfDir, receiptFileName);
 
 			// Convert File to Buffer and save
@@ -362,7 +401,7 @@ export const actions = {
 		}
 	},
 
-	invoice_mark_paid_with_receipt: async ({ request }) => {
+	invoice_mark_paid_with_receipt: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 		const paymentReceiptFile = form.get('payment_receipt') as File;
@@ -391,12 +430,14 @@ export const actions = {
 
 			// Handle payment receipt file if provided
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
-				// Extract the base path from the current PDF path
+				// Validate file type for payment receipt if provided
+				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
+					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+				}
+				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
 				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
-
-				// Generate receipt filename with _comprobante suffix
-				const receiptFileName = `${pdfFileName}_comprobante.pdf`;
+				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 
 				// Convert File to Buffer and save
@@ -426,7 +467,7 @@ export const actions = {
 		}
 	},
 
-	invoice_send_email: async ({ request }) => {
+	invoice_send_email: async ({ request }: { request: Request }) => {
 		const form = await request.formData();
 		const id = form.get('id');
 
@@ -439,7 +480,7 @@ export const actions = {
 			const invoiceData = await db
 				.select({
 					id: invoice.id,
-					pdf_path: invoice.pdf_path,
+					payment_receipt_path: invoice.payment_receipt_path,
 					value: invoice.value,
 					provider_id: invoice.provider_id,
 					provider_name: provider.name,
@@ -464,9 +505,15 @@ export const actions = {
 				});
 			}
 
+			if (!invoiceInfo.payment_receipt_path) {
+				return fail(400, {
+					error: 'No se ha subido un comprobante de pago.'
+				});
+			}
+
 			// Send email
 			const emailResult = await emailService.sendInvoiceEmail({
-				pdfPath: invoiceInfo.pdf_path,
+				pdfPath: invoiceInfo.payment_receipt_path,
 				provider: {
 					id: invoiceInfo.provider_id,
 					name: invoiceInfo.provider_name || 'Proveedor',
