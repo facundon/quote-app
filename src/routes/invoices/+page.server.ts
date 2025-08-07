@@ -1,12 +1,11 @@
 import { db } from '$lib/server/db';
 import { invoice, provider } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { writeFile } from 'fs/promises';
 import { emailService } from '$lib/server/email';
 import { fail } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
 
 // Allowed file types for uploads
 const allowedMimeTypes = [
@@ -38,8 +37,10 @@ export async function load({ url }: { url: URL }) {
 	// Apply filter based on payment status
 	if (filterStatus === 'paid') {
 		whereCondition = eq(invoice.payment_status, 'paid');
-	} else if (filterStatus === 'pending') {
+	} else if (filterStatus === 'pending-payment') {
 		whereCondition = eq(invoice.payment_status, 'pending');
+	} else if (filterStatus === 'pending') {
+		whereCondition = or(eq(invoice.payment_status, 'pending'), eq(invoice.shipping_status, 'pending'));
 	}
 	// For 'all', no where condition is applied
 

@@ -93,6 +93,7 @@
 					class="rounded-md border border-gray-300 bg-white py-1 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
 				>
 					<option value="pending">Pendientes</option>
+					<option value="pending-payment">Pendientes de pago</option>
 					<option value="paid">Pagadas</option>
 					<option value="all">Todas</option>
 				</select>
