@@ -17,7 +17,7 @@ interface EmailConfig {
 }
 
 interface SendInvoiceEmailParams {
-	pdfPath: string;
+	filePath: string;
 	provider: Provider;
 }
 
@@ -31,7 +31,7 @@ export class EmailService {
 	}
 
 	async sendInvoiceEmail({
-		pdfPath,
+		filePath,
 		provider
 	}: SendInvoiceEmailParams): Promise<{ success: boolean; error?: string }> {
 		try {
@@ -45,13 +45,27 @@ export class EmailService {
 				};
 			}
 
-			// Check if PDF file exists
-			const fullPdfPath = path.join(process.cwd(), pdfPath);
-			if (!fs.existsSync(fullPdfPath)) {
+			// Check if file exists
+			const fullFilePath = path.join(process.cwd(), filePath);
+			if (!fs.existsSync(fullFilePath)) {
 				return {
 					success: false,
-					error: 'Archivo PDF no encontrado'
+					error: 'Archivo no encontrado'
 				};
+			}
+
+			// Get file extension and determine filename
+			const fileExtension = path.extname(filePath).toLowerCase();
+			const fileName = path.basename(filePath);
+			
+			// Determine attachment filename based on file type
+			let attachmentFilename: string;
+			if (fileExtension === '.pdf') {
+				attachmentFilename = 'Comprobante.pdf';
+			} else if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(fileExtension)) {
+				attachmentFilename = `Comprobante${fileExtension}`;
+			} else {
+				attachmentFilename = fileName;
 			}
 
 			await this.transporter.sendMail({
@@ -76,8 +90,8 @@ export class EmailService {
 				`,
 				attachments: [
 					{
-						filename: `Comprobante.pdf`,
-						path: fullPdfPath
+						filename: attachmentFilename,
+						path: fullFilePath
 					}
 				]
 			});

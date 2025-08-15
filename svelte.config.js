@@ -7,6 +7,9 @@ const config = {
 		adapter: adapter(),
 		files: {
 			assets: 'static'
+		},
+		csrf: {
+			checkOrigin: false
 		}
 	}
 };

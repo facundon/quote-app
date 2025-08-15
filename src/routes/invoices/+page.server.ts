@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { invoice, provider } from '$lib/server/db/schema';
-import { eq, or } from 'drizzle-orm';
+import { desc, eq, or } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { writeFile } from 'fs/promises';
@@ -62,7 +62,8 @@ export async function load({ url }: { url: URL }) {
 		})
 		.from(invoice)
 		.leftJoin(provider, eq(invoice.provider_id, provider.id))
-		.where(whereCondition);
+		.where(whereCondition)
+		.orderBy(desc(invoice.created_at));
 
 	const providers = await db.select().from(provider);
 
@@ -514,7 +515,7 @@ export const actions = {
 
 			// Send email
 			const emailResult = await emailService.sendInvoiceEmail({
-				pdfPath: invoiceInfo.payment_receipt_path,
+				filePath: invoiceInfo.payment_receipt_path,
 				provider: {
 					id: invoiceInfo.provider_id,
 					name: invoiceInfo.provider_name || 'Proveedor',

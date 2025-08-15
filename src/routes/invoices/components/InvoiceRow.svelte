@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Menu from '$lib/components/Menu.svelte';
+	import EmailConfirmationModal from '$lib/components/EmailConfirmationModal.svelte';
 	import { enhance } from '$app/forms';
 
 	type Invoice = {
@@ -39,6 +40,8 @@
 		onEmailLoading: (invoiceId: number) => void;
 		onEmailLoadingEnd: () => void;
 	} = $props();
+
+	let showEmailModal = $state(false);
 
 	function formatCurrency(value: number): string {
 		return new Intl.NumberFormat('es-AR', {
@@ -113,6 +116,14 @@
 		}
 	}
 
+	function openEmailModal() {
+		showEmailModal = true;
+	}
+
+	function closeEmailModal() {
+		showEmailModal = false;
+	}
+
 	async function sendEmail() {
 		try {
 			const formData = new FormData();
@@ -138,6 +149,19 @@
 			console.error('Email send error:', error);
 			onEmailSent({ type: 'error', text: 'Error de conexión' });
 		}
+	}
+
+	async function confirmSendEmail() {
+		// Close modal first
+		closeEmailModal();
+		
+		// Dispatch loading event
+		onEmailLoading(invoice.id);
+
+		await sendEmail();
+
+		// Dispatch loading end event
+		onEmailLoadingEnd();
 	}
 
 	async function markAsReceived() {
@@ -238,19 +262,14 @@
 		if (invoice.payment_receipt_path && invoice.provider_email) {
 			options.push({
 				label: sendingEmail === invoice.id ? 'Enviando...' : 'Enviar Comprobante por Email',
-				icon:
-					sendingEmail === invoice.id
-						? '<svg class="h-4 w-4 text-purple-600 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m11.34 11.34l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m11.34-11.34l-2.83 2.83"/></svg>'
-						: '<svg class="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>',
-				color: 'text-purple-600',
-				callback: async () => {
-					// Dispatch loading event
-					onEmailLoading(invoice.id);
-
-					await sendEmail();
-
-					// Dispatch loading end event
-					onEmailLoadingEnd();
+				icon: sendingEmail === invoice.id 
+					? '<svg class="h-4 w-4 text-purple-600 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m11.34 11.34l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m11.34-11.34l-2.83 2.83"/></svg>'
+					: '<svg class="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>',
+				color: sendingEmail === invoice.id ? 'text-gray-400' : 'text-purple-600',
+				callback: () => {
+					if (sendingEmail !== invoice.id) {
+						openEmailModal();
+					}
 				}
 			});
 		}
@@ -321,3 +340,11 @@
 		<Menu options={getMenuOptions()} />
 	</td>
 </tr>
+
+<EmailConfirmationModal
+	show={showEmailModal}
+	invoice={invoice}
+	onConfirm={confirmSendEmail}
+	onCancel={closeEmailModal}
+	sending={sendingEmail === invoice.id}
+/>
