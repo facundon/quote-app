@@ -58,7 +58,11 @@ export async function load({ url }: { url: URL }) {
 			uploaded_by: invoice.uploaded_by,
 			created_at: invoice.created_at,
 			provider_name: provider.name,
-			provider_email: provider.email
+			provider_email: provider.email,
+			provider_address: provider.address,
+			provider_phone: provider.phone,
+			provider_cbu_alias: provider.cbu_alias,
+			provider_contact_name: provider.contact_name
 		})
 		.from(invoice)
 		.leftJoin(provider, eq(invoice.provider_id, provider.id))

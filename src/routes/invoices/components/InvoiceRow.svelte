@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Menu from '$lib/components/Menu.svelte';
 	import EmailConfirmationModal from '$lib/components/EmailConfirmationModal.svelte';
-	import { enhance } from '$app/forms';
-	import { toast, toastHelpers } from '$lib/utils/toast.js';
+	import { toastHelpers } from '$lib/utils/toast.js';
+	import ProviderModal from './ProviderModal.svelte';
 
 	type Invoice = {
 		id: number;
@@ -18,6 +18,10 @@
 		created_at: string | null;
 		provider_name: string | null;
 		provider_email: string | null;
+		provider_address: string | null;
+		provider_cbu_alias: string | null;
+		provider_contact_name: string | null;
+		provider_phone: string | null;
 	};
 
 	let {
@@ -158,7 +162,7 @@
 	async function confirmSendEmail() {
 		// Close modal first
 		closeEmailModal();
-		
+
 		// Dispatch loading event
 		onEmailLoading(invoice.id);
 
@@ -220,6 +224,8 @@
 		}
 	}
 
+	let showProviderModal = $state(false);
+
 	function getMenuOptions() {
 		const options = [
 			{
@@ -228,6 +234,14 @@
 				color: 'text-gray-700',
 				callback: () => {
 					window.open(`/${invoice.pdf_path}`, '_blank');
+				}
+			},
+			{
+				label: 'Ver Proveedor',
+				icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
+				color: 'text-blue-600',
+				callback: () => {
+					showProviderModal = true;
 				}
 			}
 		];
@@ -272,9 +286,10 @@
 		if (invoice.payment_receipt_path && invoice.provider_email) {
 			options.push({
 				label: sendingEmail === invoice.id ? 'Enviando...' : 'Enviar Comprobante por Email',
-				icon: sendingEmail === invoice.id 
-					? '<svg class="h-4 w-4 text-purple-600 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m11.34 11.34l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m11.34-11.34l-2.83 2.83"/></svg>'
-					: '<svg class="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>',
+				icon:
+					sendingEmail === invoice.id
+						? '<svg class="h-4 w-4 text-purple-600 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m11.34 11.34l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m11.34-11.34l-2.83 2.83"/></svg>'
+						: '<svg class="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>',
 				color: sendingEmail === invoice.id ? 'text-gray-400' : 'text-purple-600',
 				callback: () => {
 					if (sendingEmail !== invoice.id) {
@@ -353,8 +368,21 @@
 
 <EmailConfirmationModal
 	show={showEmailModal}
-	invoice={invoice}
+	{invoice}
 	onConfirm={confirmSendEmail}
 	onCancel={closeEmailModal}
 	sending={sendingEmail === invoice.id}
+/>
+
+<ProviderModal
+	show={showProviderModal}
+	provider={{
+		address: invoice.provider_address,
+		cbu_alias: invoice.provider_cbu_alias,
+		contact_name: invoice.provider_contact_name,
+		email: invoice.provider_email,
+		name: invoice.provider_name,
+		phone: invoice.provider_phone
+	}}
+	onClose={() => (showProviderModal = false)}
 />
