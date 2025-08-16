@@ -2,6 +2,7 @@
 	import Menu from '$lib/components/Menu.svelte';
 	import EmailConfirmationModal from '$lib/components/EmailConfirmationModal.svelte';
 	import { enhance } from '$app/forms';
+	import { toast, toastHelpers } from '$lib/utils/toast.js';
 
 	type Invoice = {
 		id: number;
@@ -139,14 +140,17 @@
 			if (result.type === 'failure') {
 				const errorMessage =
 					result.data.error || JSON.parse(result.data)[1] || 'Error al enviar email';
+				toastHelpers.emailError(errorMessage);
 				onEmailSent({ type: 'error', text: errorMessage });
 			} else {
 				console.log('Sending success message');
+				toastHelpers.emailSent();
 				onEmailSent({ type: 'success', text: 'Email enviado correctamente' });
 			}
 		} catch (error) {
 			// Handle network/connection errors
 			console.error('Email send error:', error);
+			toastHelpers.networkError();
 			onEmailSent({ type: 'error', text: 'Error de conexión' });
 		}
 	}
@@ -177,12 +181,15 @@
 			const result = await response.json();
 
 			if (result.success || response.ok) {
+				toastHelpers.receivedMarked();
 				onUpdated();
 			} else {
 				console.error('Error marking as received:', result.error || 'Unknown error');
+				toastHelpers.updateError('recepción', result.error || 'Error desconocido');
 			}
 		} catch (error) {
 			console.error('Error marking as received:', error);
+			toastHelpers.networkError();
 		}
 	}
 
@@ -200,12 +207,15 @@
 				const result = await response.json();
 
 				if (result.success || response.ok) {
+					toastHelpers.itemDeleted('Factura');
 					onDeleted();
 				} else {
 					console.error('Error deleting invoice:', result.error || 'Unknown error');
+					toastHelpers.deleteError('factura', result.error || 'Error desconocido');
 				}
 			} catch (error) {
 				console.error('Error deleting invoice:', error);
+				toastHelpers.networkError();
 			}
 		}
 	}

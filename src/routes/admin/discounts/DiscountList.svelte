@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 	type Category = { id: number; name: string };
 	type Discount = { id: number; category_id: number; min_quantity: number; percentage: number };
 	let {
@@ -82,7 +83,12 @@
 									action="?/discount_delete"
 									use:enhance={() => {
 										return async ({ result }) => {
-											if (result.type === 'success' && onDeleted) await onDeleted();
+											if (result.type === 'success' && onDeleted) {
+												toastHelpers.itemDeleted('Descuento');
+												await onDeleted();
+											} else if (result.type === 'failure') {
+												toastHelpers.deleteError('Descuento', typeof result.data?.error === 'string' ? result.data.error : 'Error al eliminar descuento');
+											}
 										};
 									}}
 									class="absolute -right-1 -bottom-1 opacity-0 transition-opacity group-hover:opacity-100"

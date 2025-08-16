@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Provider = {
 		id: number;
@@ -128,8 +129,11 @@
 											use:enhance={() => {
 												return async ({ result }) => {
 													if (result.type === 'success') {
+														toastHelpers.itemDeleted('Proveedor');
 														onDeleted();
-													}
+																		} else if (result.type === 'failure') {
+						toastHelpers.deleteError('Proveedor', typeof result.data?.message === 'string' ? result.data.message : 'Error al eliminar proveedor');
+					}
 												};
 											}}
 											class="inline"

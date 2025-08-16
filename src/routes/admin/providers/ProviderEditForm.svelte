@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	let {
 		id,
@@ -39,7 +40,10 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemUpdated('Proveedor');
 					onEdited();
+				} else if (result.type === 'failure') {
+					toastHelpers.updateError('Proveedor', typeof result.data?.message === 'string' ? result.data.message : 'Error al actualizar proveedor');
 				}
 				isSubmitting = false;
 			};

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Category = {
 		id: number;
@@ -67,9 +68,13 @@
 							}: {
 								result: { type: string; data?: { error?: string } };
 							}) => {
-								if (result.type === 'success' && onDeleted) await onDeleted();
-								else if (result.type === 'failure')
+								if (result.type === 'success' && onDeleted) {
+									toastHelpers.itemDeleted('Categoría');
+									await onDeleted();
+								} else if (result.type === 'failure') {
+									toastHelpers.deleteError('Categoría', typeof result.data?.error === 'string' ? result.data.error : 'Error al eliminar categoría');
 									error = result.data?.error || 'Error desconocido';
+								}
 							};
 						}}
 					>

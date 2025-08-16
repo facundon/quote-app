@@ -3,6 +3,7 @@
 	import Modal from './Modal.svelte';
 	import FilePicker from './FilePicker.svelte';
 	import ActionButton from './ActionButton.svelte';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Invoice = {
 		id: number;
@@ -52,9 +53,12 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.paymentMarked();
 					resetModal();
 					onSuccess();
 					onClose();
+				} else if (result.type === 'failure') {
+					toastHelpers.updateError('Pago', typeof result.data?.message === 'string' ? result.data.message : 'Error al marcar como pagado');
 				}
 				isUploading = false;
 			};

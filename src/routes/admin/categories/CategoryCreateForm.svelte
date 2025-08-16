@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 	let {
 		name,
 		unitPrice,
@@ -21,9 +22,12 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemCreated('Categoría');
 					name = '';
 					unitPrice = '';
 					if (onCreated) await onCreated();
+				} else if (result.type === 'failure') {
+					toastHelpers.createError('Categoría', typeof result.data?.message === 'string' ? result.data.message : 'Error al crear categoría');
 				}
 			};
 		}}

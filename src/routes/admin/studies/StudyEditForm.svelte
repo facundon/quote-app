@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 	type Category = { id: number; name: string };
 	let {
 		id,
@@ -23,8 +24,10 @@
 	function handleEnhance() {
 		return async ({ result }: { result: { type: string; data?: { error?: string } } }) => {
 			if (result.type === 'success' && onEdited) {
+				toastHelpers.itemUpdated('Estudio');
 				await onEdited();
 			} else if (result.type === 'failure') {
+				toastHelpers.updateError('Estudio', typeof result.data?.error === 'string' ? result.data.error : 'Error al actualizar estudio');
 				error = result.data?.error || 'Error desconocido';
 			}
 		};

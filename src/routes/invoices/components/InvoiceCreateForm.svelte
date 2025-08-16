@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import FilePicker from '$lib/components/FilePicker.svelte';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Provider = {
 		id: number;
@@ -62,8 +63,11 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemCreated('Factura');
 					resetForm();
 					onCreated();
+				} else if (result.type === 'failure') {
+					toastHelpers.createError('Factura', typeof result.data?.message === 'string' ? result.data.message : 'Error al crear factura');
 				}
 				isSubmitting = false;
 			};

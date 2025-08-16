@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	let {
 		name,
@@ -35,6 +36,7 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemCreated('Proveedor');
 					name = '';
 					address = '';
 					phone = '';
@@ -42,6 +44,8 @@
 					cbuAlias = '';
 					contactName = '';
 					onCreated();
+				} else if (result.type === 'failure') {
+					toastHelpers.createError('Proveedor', typeof result.data?.message === 'string' ? result.data.message : 'Error al crear proveedor');
 				}
 				isSubmitting = false;
 			};

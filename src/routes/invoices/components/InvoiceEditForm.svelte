@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import FilePicker from '$lib/components/FilePicker.svelte';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Invoice = {
 		id: number;
@@ -99,7 +100,10 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemUpdated('Factura');
 					onEdited();
+				} else if (result.type === 'failure') {
+					toastHelpers.updateError('Factura', typeof result.data?.message === 'string' ? result.data.message : 'Error al actualizar factura');
 				}
 				isSubmitting = false;
 			};

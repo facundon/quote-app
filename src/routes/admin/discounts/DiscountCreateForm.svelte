@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { toastHelpers } from '$lib/utils/toast.js';
 	type Category = { id: number; name: string };
 	let {
 		categoryId,
@@ -34,10 +35,13 @@
 		use:enhance={() => {
 			return async ({ result }) => {
 				if (result.type === 'success') {
+					toastHelpers.itemCreated('Descuento');
 					categoryId = '';
 					minQuantity = '';
 					percentage = '';
 					if (onCreated) await onCreated();
+				} else if (result.type === 'failure') {
+					toastHelpers.createError('Descuento', typeof result.data?.message === 'string' ? result.data.message : 'Error al crear descuento');
 				}
 			};
 		}}
