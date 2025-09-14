@@ -12,12 +12,14 @@
 		total,
 		categoryDiscounts,
 		formatNumber,
-		finalTotal
+		finalTotal,
+		totalQuantity
 	}: {
 		total: number;
 		categoryDiscounts: CategoryDiscount[];
 		formatNumber: (n: number) => string;
 		finalTotal: number;
+		totalQuantity: number;
 	} = $props();
 
 	let totalDiscounts = $derived(categoryDiscounts.reduce((acc, d) => acc + d.amount, 0));
@@ -51,7 +53,7 @@
 		{/if}
 	</div>
 	<div class="mt-2 mb-2 flex flex-col items-center justify-center">
-		<span class="text-xl font-extrabold text-blue-900">Total</span>
+		<span class="text-xl font-extrabold text-blue-900">Total: {totalQuantity} estudios</span>
 		<span class="text-4xl font-extrabold tracking-tight text-blue-900"
 			>${formatNumber(finalTotal)}</span
 		>

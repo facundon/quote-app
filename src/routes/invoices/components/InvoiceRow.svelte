@@ -55,22 +55,9 @@
 		}).format(value);
 	}
 
-	function formatDate(dateString: string | null): string {
-		if (!dateString) return '-';
-		// Parse as local date (YYYY-MM-DD)
-		const [year, month, day] = dateString.split('-').map(Number);
-		const date = new Date(year, month - 1, day);
-		if (isNaN(date.getTime())) return '-';
-		return date.toLocaleDateString('es-AR');
-	}
-
-	function getCreationDate(createdAt: string | null): string {
-		if (!createdAt) return '-';
-		// Parse as local date (YYYY-MM-DD)
-		const [year, month, day] = createdAt.split('-').map(Number);
-		const date = new Date(year, month - 1, day);
-		if (isNaN(date.getTime())) return '-';
-		return date.toLocaleDateString('es-AR');
+	function formatDate(date: string | null): string {
+		if (!date) return '-';
+		return new Date(date).toLocaleDateString('es-AR');
 	}
 
 	function getStatusColor(status: string): string {
@@ -78,8 +65,6 @@
 			case 'paid':
 				return 'bg-green-100 text-green-800';
 			case 'pending':
-				return 'bg-yellow-100 text-yellow-800';
-			case 'cancelled':
 				return 'bg-red-100 text-red-800';
 			default:
 				return 'bg-gray-100 text-gray-800';
@@ -102,9 +87,9 @@
 			case 'paid':
 				return 'Pagado';
 			case 'pending':
-				return 'Pendiente';
+				return 'Pago Pendiente';
 			case 'cancelled':
-				return 'Cancelado';
+				return 'Pago Cancelado';
 			default:
 				return status;
 		}
@@ -115,7 +100,7 @@
 			case 'delivered':
 				return 'Recibido';
 			case 'pending':
-				return 'Pendiente';
+				return 'Pendiente de Envío';
 			default:
 				return status;
 		}
@@ -235,14 +220,6 @@
 				callback: () => {
 					window.open(`/${invoice.pdf_path}`, '_blank');
 				}
-			},
-			{
-				label: 'Ver Proveedor',
-				icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
-				color: 'text-blue-600',
-				callback: () => {
-					showProviderModal = true;
-				}
 			}
 		];
 
@@ -299,11 +276,20 @@
 			});
 		}
 
+		options.push({
+			label: 'Ver Proveedor',
+			icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
+			color: 'text-gray-700',
+			callback: () => {
+				showProviderModal = true;
+			}
+		});
+
 		// Add edit option
 		options.push({
 			label: 'Editar',
 			icon: '<svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>',
-			color: 'text-blue-600',
+			color: 'text-gray-700',
 			callback: () => onEdit(invoice)
 		});
 
@@ -346,7 +332,7 @@
 		<div class="space-y-1 text-xs text-gray-600">
 			<div>
 				<span class="font-medium">Creado:</span>
-				{getCreationDate(invoice.created_at)}
+				{formatDate(invoice.created_at)}
 			</div>
 			<div>
 				<span class="font-medium">Pago:</span>

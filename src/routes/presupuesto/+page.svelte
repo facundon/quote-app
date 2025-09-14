@@ -3,6 +3,7 @@
 	import QuoteCategories from './QuoteCategories.svelte';
 	import QuoteSummary from './QuoteSummary.svelte';
 	import QuoteTotals from './QuoteTotals.svelte';
+	import ResetButton from './ResetButton.svelte';
 
 	let { data } = $props();
 
@@ -126,6 +127,16 @@
 			highlightedIndex = -1;
 		}
 	}
+
+	function resetBudget() {
+		// Reset all category quantities to 0
+		categoryQuantities = Object.fromEntries(data.categories.map((cat) => [cat.id, 0]));
+		// Clear search
+		search = '';
+		selectedStudy = null;
+		showSuggestions = false;
+		highlightedIndex = -1;
+	}
 </script>
 
 <div class="mx-auto max-w-4xl">
@@ -143,6 +154,9 @@
 			{handleSearchKeydown}
 			{selectSuggestion}
 		/>
+		<div class="mt-4 flex justify-end">
+			<ResetButton onReset={resetBudget} variant="danger" />
+		</div>
 		<QuoteCategories
 			{data}
 			{categoryQuantities}
@@ -159,7 +173,10 @@
 			{showSummary}
 			toggleSummary={() => (showSummary = !showSummary)}
 		/>
-		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} />
+		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity}	 />
+		<div class="mt-6 flex justify-end">
+			<ResetButton onReset={resetBudget} variant="danger" />
+		</div>
 	</div>
 </div>
 
