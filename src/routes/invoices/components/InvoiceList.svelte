@@ -15,6 +15,7 @@
 		reception_date: string | null;
 		provider_id: number;
 		uploaded_by: string;
+		notes: string | null;
 		created_at: string | null;
 		provider_name: string | null;
 		provider_email: string | null;
@@ -139,6 +140,10 @@
 						<th
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
 							>Subido por</th
+						>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							>Notas</th
 						>
 						<th
 							class="px-6 py-3 text-center text-xs font-medium tracking-wider text-gray-500 uppercase"

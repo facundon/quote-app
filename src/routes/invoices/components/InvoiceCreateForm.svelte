@@ -24,6 +24,7 @@
 	let value = $state('');
 	let providerId = $state('');
 	let uploadedBy = $state('');
+	let notes = $state('');
 	let pdfFile = $state<File | null>(null);
 	let paymentReceiptFile = $state<File | null>(null);
 	let isSubmitting = $state(false);
@@ -32,6 +33,7 @@
 		value = '';
 		providerId = '';
 		uploadedBy = '';
+		notes = '';
 		pdfFile = null;
 		paymentReceiptFile = null;
 		// Reset the file inputs
@@ -146,6 +148,18 @@
 					onFileSelected={handleFileSelected}
 				/>
 			</div>
+		</div>
+
+		<div>
+			<label for="notes" class="mb-1 block text-sm font-semibold">Notas - Opcional</label>
+			<textarea
+				id="notes"
+				name="notes"
+				bind:value={notes}
+				rows="3"
+				class="w-full rounded border px-3 py-2"
+				placeholder="Información adicional sobre la factura..."
+			></textarea>
 		</div>
 
 		<div class="flex justify-end">

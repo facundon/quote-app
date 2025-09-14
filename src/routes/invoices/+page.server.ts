@@ -56,6 +56,7 @@ export async function load({ url }: { url: URL }) {
 			reception_date: invoice.reception_date,
 			provider_id: invoice.provider_id,
 			uploaded_by: invoice.uploaded_by,
+			notes: invoice.notes,
 			created_at: invoice.created_at,
 			provider_name: provider.name,
 			provider_email: provider.email,
@@ -82,6 +83,7 @@ export const actions = {
 		const value = form.get('value');
 		const provider_id = form.get('provider_id');
 		const uploaded_by = form.get('uploaded_by');
+		const notes = form.get('notes');
 
 		if (!pdfFile || !value || !provider_id || !uploaded_by) {
 			return fail(400, { error: 'Faltan campos requeridos.' });
@@ -164,6 +166,7 @@ export const actions = {
 				shipping_status: 'pending',
 				provider_id: Number(provider_id),
 				uploaded_by: String(uploaded_by),
+				notes: notes ? String(notes) : null,
 				created_at: new Date().toISOString()
 			});
 
@@ -183,6 +186,7 @@ export const actions = {
 		const shipping_status = form.get('shipping_status');
 		const payment_date = form.get('payment_date');
 		const reception_date = form.get('reception_date');
+		const notes = form.get('notes');
 		const paymentReceiptFile = form.get('payment_receipt') as File;
 
 		if (!id || !value || !uploaded_by || !payment_status || !shipping_status) {
@@ -250,6 +254,7 @@ export const actions = {
 					shipping_status: String(shipping_status),
 					payment_date: payment_date ? String(payment_date) : null,
 					reception_date: reception_date ? String(reception_date) : null,
+					notes: notes ? String(notes) : null,
 					...(paymentReceiptPath !== undefined && { payment_receipt_path: paymentReceiptPath })
 				})
 				.where(eq(invoice.id, Number(id)));

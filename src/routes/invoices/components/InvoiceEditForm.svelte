@@ -14,6 +14,7 @@
 		reception_date: string | null;
 		provider_id: number;
 		uploaded_by: string;
+		notes: string | null;
 		created_at: string | null;
 		provider_name: string | null;
 	};
@@ -30,6 +31,7 @@
 
 	let value = $state(invoice.value.toString());
 	let uploadedBy = $state(invoice.uploaded_by);
+	let notes = $state(invoice.notes || '');
 	let paymentStatus = $state(invoice.payment_status);
 	let shippingStatus = $state(invoice.shipping_status);
 	let paymentDate = $state(formatDateForInput(invoice.payment_date));
@@ -139,6 +141,18 @@
 					placeholder="Nombre de la persona"
 				/>
 			</div>
+		</div>
+
+		<div>
+			<label for="notes" class="mb-1 block text-sm font-semibold">Notas - Opcional</label>
+			<textarea
+				id="notes"
+				name="notes"
+				bind:value={notes}
+				rows="3"
+				class="w-full rounded border px-3 py-2"
+				placeholder="Información adicional sobre la factura..."
+			></textarea>
 		</div>
 
 		<!-- Payment Section -->

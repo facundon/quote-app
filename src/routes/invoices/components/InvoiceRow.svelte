@@ -15,6 +15,7 @@
 		reception_date: string | null;
 		provider_id: number;
 		uploaded_by: string;
+		notes: string | null;
 		created_at: string | null;
 		provider_name: string | null;
 		provider_email: string | null;
@@ -346,6 +347,17 @@
 	</td>
 	<td class="px-6 py-4 whitespace-nowrap">
 		<div class="text-sm text-gray-900">{invoice.uploaded_by}</div>
+	</td>
+	<td class="px-6 py-4">
+		<div class="text-sm text-gray-900 max-w-xs">
+			{#if invoice.notes}
+				<div class="truncate" title={invoice.notes}>
+					{invoice.notes}
+				</div>
+			{:else}
+				<span class="text-gray-400 italic">Sin notas</span>
+			{/if}
+		</div>
 	</td>
 	<td class="px-6 py-4 text-center text-sm font-medium whitespace-nowrap">
 		<Menu options={getMenuOptions()} />

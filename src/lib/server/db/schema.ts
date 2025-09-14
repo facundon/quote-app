@@ -48,6 +48,7 @@ export const invoice = sqliteTable('invoice', {
 		.references(() => provider.id)
 		.notNull(),
 	uploaded_by: text('uploaded_by').notNull(), // name of the person who uploaded the invoice
+	notes: text('notes'), // optional notes field for additional information
 	created_at: text('created_at')
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`)

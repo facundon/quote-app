@@ -15,6 +15,7 @@
 		reception_date: string | null;
 		provider_id: number;
 		uploaded_by: string;
+		notes: string | null;
 		created_at: string | null;
 		provider_name: string | null;
 	};
