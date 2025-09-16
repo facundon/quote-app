@@ -67,6 +67,19 @@ export const ticket = sqliteTable('ticket', {
 	completed_at: text('completed_at') // completion date, null if not finished
 });
 
+export const instruction = sqliteTable('instruction', {
+	id: integer('id').primaryKey(),
+	title: text('title').notNull(),
+	description: text('description').notNull(),
+	category: text('category').notNull(), // category to group related instructions
+	created_at: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updated_at: text('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
 // TypeScript types for type safety
 export type Category = InferSelectModel<typeof category>;
 export type CategoryInsert = InferInsertModel<typeof category>;
@@ -85,3 +98,6 @@ export type InvoiceInsert = InferInsertModel<typeof invoice>;
 
 export type Ticket = InferSelectModel<typeof ticket>;
 export type TicketInsert = InferInsertModel<typeof ticket>;
+
+export type Instruction = InferSelectModel<typeof instruction>;
+export type InstructionInsert = InferInsertModel<typeof instruction>;

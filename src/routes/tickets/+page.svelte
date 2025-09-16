@@ -196,7 +196,7 @@
 
 	// Función para obtener el siguiente estado en el ciclo
 	function getNextStatus(currentStatus: string) {
-		const statusFlow = { open: 'in_progress', in_progress: 'resolved' };
+		const statusFlow: Record<string, string> = { open: 'in_progress', in_progress: 'resolved' };
 		const nextStatus = statusFlow[currentStatus];
 		if (!nextStatus) return null;
 		const statusInfo = getStatusInfo(nextStatus);
@@ -205,7 +205,7 @@
 
 	// Función para ciclar el estado de un ticket
 	async function cycleTicketStatus(ticketId: number, currentStatus: string) {
-		const statusFlow = { open: 'in_progress', in_progress: 'resolved' };
+		const statusFlow: Record<string, string> = { open: 'in_progress', in_progress: 'resolved' };
 		const nextStatus = statusFlow[currentStatus];
 		if (!nextStatus) return;
 

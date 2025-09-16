@@ -14,9 +14,14 @@
 			icon: '📄'
 		},
 		{
-			label: 'Tickets',
+			label: 'Tareas',
 			href: '/tickets',
 			icon: '🎫'
+		},
+		{
+			label: 'Instrucciones',
+			href: '/instructions',
+			icon: '📝'
 		}
 	];
 
