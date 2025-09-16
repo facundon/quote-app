@@ -19,6 +19,10 @@
 		created_at: string | null;
 		provider_name: string | null;
 		provider_email: string | null;
+		provider_address: string | null;
+		provider_cbu_alias: string | null;
+		provider_contact_name: string | null;
+		provider_phone: string | null;
 	};
 
 	let {
@@ -145,10 +149,7 @@
 							class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
 							>Notas</th
 						>
-						<th
-							class="px-6 py-3 text-center text-xs font-medium tracking-wider text-gray-500 uppercase"
-							>Acciones</th
-						>
+						<th class="w-12 px-2 py-3"></th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-200 bg-white">

@@ -1,41 +1,27 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1748123709497,
-      "tag": "0000_sad_blur",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1748135984048,
-      "tag": "0001_damp_black_bolt",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1752592036627,
-      "tag": "0002_cute_shatterstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1752601039047,
-      "tag": "0003_naive_shinko_yamashiro",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1757889295637,
-      "tag": "0004_colorful_king_cobra",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1758051157456,
+			"tag": "0000_little_ted_forrester",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1758052574305,
+			"tag": "0001_colossal_spiral",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1758052656313,
+			"tag": "0002_remarkable_red_hulk",
+			"breakpoints": true
+		}
+	]
 }

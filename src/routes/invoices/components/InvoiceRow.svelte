@@ -349,7 +349,7 @@
 		<div class="text-sm text-gray-900">{invoice.uploaded_by}</div>
 	</td>
 	<td class="px-6 py-4">
-		<div class="text-sm text-gray-900 max-w-xs">
+		<div class="max-w-xs text-sm text-gray-900">
 			{#if invoice.notes}
 				<div class="truncate" title={invoice.notes}>
 					{invoice.notes}
@@ -359,7 +359,7 @@
 			{/if}
 		</div>
 	</td>
-	<td class="px-6 py-4 text-center text-sm font-medium whitespace-nowrap">
+	<td class="px-2 py-4 text-center text-sm font-medium whitespace-nowrap">
 		<Menu options={getMenuOptions()} />
 	</td>
 </tr>

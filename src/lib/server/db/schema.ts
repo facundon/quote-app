@@ -54,6 +54,19 @@ export const invoice = sqliteTable('invoice', {
 		.default(sql`CURRENT_TIMESTAMP`)
 });
 
+export const ticket = sqliteTable('ticket', {
+	id: integer('id').primaryKey(),
+	title: text('title').notNull(),
+	description: text('description').notNull(),
+	assignee: text('assignee'), // optional, can be null if not assigned
+	priority: text('priority').notNull().default('medium'), // 'low', 'medium', 'high', 'urgent'
+	status: text('status').notNull().default('open'), // 'open', 'in_progress', 'resolved', 'closed'
+	created_at: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	completed_at: text('completed_at') // completion date, null if not finished
+});
+
 // TypeScript types for type safety
 export type Category = InferSelectModel<typeof category>;
 export type CategoryInsert = InferInsertModel<typeof category>;
@@ -69,3 +82,6 @@ export type ProviderInsert = InferInsertModel<typeof provider>;
 
 export type Invoice = InferSelectModel<typeof invoice>;
 export type InvoiceInsert = InferInsertModel<typeof invoice>;
+
+export type Ticket = InferSelectModel<typeof ticket>;
+export type TicketInsert = InferInsertModel<typeof ticket>;

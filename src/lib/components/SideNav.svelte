@@ -12,6 +12,11 @@
 			label: 'Facturas',
 			href: '/invoices',
 			icon: '📄'
+		},
+		{
+			label: 'Tickets',
+			href: '/tickets',
+			icon: '🎫'
 		}
 	];
 

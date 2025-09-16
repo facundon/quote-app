@@ -4,19 +4,27 @@
 	let {
 		show = false,
 		title = '',
+		size = 'small',
 		onClose,
 		children
 	}: {
 		show: boolean;
 		title: string;
+		size?: 'small' | 'medium' | 'large';
 		onClose: () => void;
 		children: Snippet;
 	} = $props();
+
+	const sizeClasses = {
+		small: 'max-w-md',
+		medium: 'max-w-2xl',
+		large: 'max-w-4xl'
+	};
 </script>
 
 {#if show}
 	<div class="bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black">
-		<div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+		<div class="w-full {sizeClasses[size]} rounded-lg bg-white p-6 shadow-xl">
 			<div class="mb-4 flex items-center justify-between">
 				<h3 class="text-lg font-semibold text-gray-900">{title}</h3>
 				<button
