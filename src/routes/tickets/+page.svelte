@@ -51,12 +51,6 @@
 			label: 'Resuelto',
 			color: 'bg-green-100 text-green-800 border-green-200',
 			icon: '✅'
-		},
-		{
-			value: 'closed',
-			label: 'Cerrado',
-			color: 'bg-gray-100 text-gray-800 border-gray-200',
-			icon: '⚫'
 		}
 	];
 
@@ -118,9 +112,8 @@
 		const open = data.tickets.filter((t) => t.status === 'open').length;
 		const inProgress = data.tickets.filter((t) => t.status === 'in_progress').length;
 		const resolved = data.tickets.filter((t) => t.status === 'resolved').length;
-		const closed = data.tickets.filter((t) => t.status === 'closed').length;
 
-		return { total, open, inProgress, resolved, closed };
+		return { total, open, inProgress, resolved };
 	});
 
 	function getStatusInfo(status: string) {
@@ -201,6 +194,47 @@
 		}
 	}
 
+	// Función para obtener el siguiente estado en el ciclo
+	function getNextStatus(currentStatus: string) {
+		const statusFlow = { open: 'in_progress', in_progress: 'resolved' };
+		const nextStatus = statusFlow[currentStatus];
+		if (!nextStatus) return null;
+		const statusInfo = getStatusInfo(nextStatus);
+		return statusInfo.label;
+	}
+
+	// Función para ciclar el estado de un ticket
+	async function cycleTicketStatus(ticketId: number, currentStatus: string) {
+		const statusFlow = { open: 'in_progress', in_progress: 'resolved' };
+		const nextStatus = statusFlow[currentStatus];
+		if (!nextStatus) return;
+
+		try {
+			isSubmitting = true;
+			const formData = new FormData();
+			formData.append('id', ticketId.toString());
+			formData.append('status', nextStatus);
+
+			const response = await fetch('?/updateStatus', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+
+			if (result.type === 'success' || response.ok) {
+				showToastMessage('Estado actualizado exitosamente', 'success');
+				invalidateAll();
+			} else {
+				showToastMessage('Error al actualizar el estado', 'error');
+			}
+		} catch (error) {
+			showToastMessage('Error al actualizar el estado', 'error');
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
 	async function deleteTicket(ticketId: number) {
 		try {
 			isSubmitting = true;
@@ -229,7 +263,20 @@
 
 	// Función para generar opciones del menú para cada ticket
 	function getTicketMenuOptions(ticket: Ticket) {
-		return [
+		const options = [];
+
+		// Solo agregar "Cambiar Estado" si hay un siguiente estado
+		const nextStatus = getNextStatus(ticket.status);
+		if (nextStatus) {
+			options.push({
+				label: `Cambiar Estado (→ ${nextStatus})`,
+				icon: '<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
+				color: 'text-green-600',
+				callback: () => cycleTicketStatus(ticket.id, ticket.status)
+			});
+		}
+
+		options.push(
 			{
 				label: 'Editar',
 				icon: '<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>',
@@ -242,7 +289,9 @@
 				color: 'text-red-600',
 				callback: () => confirmDelete(ticket.id, ticket.title)
 			}
-		];
+		);
+
+		return options;
 	}
 </script>
 
@@ -286,7 +335,7 @@
 			</div>
 
 			<!-- Estadísticas -->
-			<div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+			<div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
 				<div class="rounded-lg bg-gray-50 p-4 text-center">
 					<div class="text-2xl font-bold text-gray-900">{ticketStats().total}</div>
 					<div class="text-sm text-gray-600">Total</div>
@@ -302,10 +351,6 @@
 				<div class="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
 					<div class="text-2xl font-bold text-green-900">{ticketStats().resolved}</div>
 					<div class="text-sm text-green-700">Resueltos</div>
-				</div>
-				<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
-					<div class="text-2xl font-bold text-gray-900">{ticketStats().closed}</div>
-					<div class="text-sm text-gray-700">Cerrados</div>
 				</div>
 			</div>
 		</div>
@@ -440,7 +485,7 @@
 							<p class="text-sm text-gray-600">{ticket.description}</p>
 						</div>
 
-						<!-- Footer: Asignado y fecha -->
+						<!-- Footer: Asignado, fecha y botón de estado -->
 						<div class="border-t border-gray-100 px-6 py-3">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2">
