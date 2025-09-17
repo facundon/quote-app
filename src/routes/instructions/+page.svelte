@@ -192,24 +192,17 @@
 	<title>Instrucciones - Laboratorio</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50 py-8">
-	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-		<!-- Header -->
-		<div class="mb-8">
-			<div class="sm:flex sm:items-center sm:justify-between">
-				<div>
-					<h1 class="text-3xl font-bold tracking-tight text-gray-900">Instrucciones</h1>
-				</div>
-				<div class="mt-4 sm:mt-0">
-					<ActionButton
-						onclick={() => (showCreateModal = true)}
-						variant="primary"
-						disabled={isSubmitting}
-					>
-						📝 Nueva Instrucción
-					</ActionButton>
-				</div>
-			</div>
+<div class="mx-auto max-w-6xl">
+	<div class="rounded-xl bg-white p-8 shadow-lg">
+		<div class="mb-6 flex items-center justify-between">
+			<h1 class="text-3xl font-extrabold text-blue-900">Instrucciones</h1>
+			<ActionButton
+				onclick={() => (showCreateModal = true)}
+				variant="primary"
+				disabled={isSubmitting}
+			>
+				📝 Nueva Instrucción
+			</ActionButton>
 		</div>
 
 		<!-- Controles de selección y copia - globales (solo afectan 'estudios') -->
