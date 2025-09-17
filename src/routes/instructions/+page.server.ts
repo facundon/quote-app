@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { instruction } from '$lib/server/db/schema';
-import { desc, eq, like, or, and } from 'drizzle-orm';
+import { desc, eq, like, or, and, asc } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 
 export async function load({ url }: { url: URL }) {
@@ -36,7 +36,7 @@ export async function load({ url }: { url: URL }) {
 		.select()
 		.from(instruction)
 		.where(whereCondition)
-		.orderBy(desc(instruction.created_at));
+		.orderBy(instruction.order, desc(instruction.created_at));
 
 	// Get unique categories for filter dropdown
 	const categories = await db
@@ -64,10 +64,21 @@ export const actions = {
 		}
 
 		try {
+			// Get the highest order number for this category
+			const maxOrderResult = await db
+				.select({ maxOrder: instruction.order })
+				.from(instruction)
+				.where(eq(instruction.category, String(category)))
+				.orderBy(desc(instruction.order))
+				.limit(1);
+
+			const nextOrder = maxOrderResult.length > 0 ? (maxOrderResult[0].maxOrder || 0) + 1 : 0;
+
 			await db.insert(instruction).values({
 				title: String(title),
 				description: String(description),
 				category: String(category),
+				order: nextOrder,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString()
 			});
@@ -161,6 +172,38 @@ export const actions = {
 		} catch (error) {
 			console.error('Error copying instruction:', error);
 			return fail(500, { error: 'Error al copiar la instrucción.' });
+		}
+	},
+
+	instruction_reorder: async ({ request }: { request: Request }) => {
+		const form = await request.formData();
+		const instructionIds = form.get('instructionIds');
+		const category = form.get('category');
+
+		if (!instructionIds || !category) {
+			return fail(400, { error: 'Faltan datos requeridos.' });
+		}
+
+		try {
+			const ids = JSON.parse(String(instructionIds)) as number[];
+
+			// Update the order for each instruction
+			await Promise.all(
+				ids.map((id, index) =>
+					db
+						.update(instruction)
+						.set({
+							order: index,
+							updated_at: new Date().toISOString()
+						})
+						.where(eq(instruction.id, id))
+				)
+			);
+
+			return { success: true, message: 'Orden actualizado exitosamente.' };
+		} catch (error) {
+			console.error('Error reordering instructions:', error);
+			return fail(500, { error: 'Error al reordenar las instrucciones.' });
 		}
 	}
 };

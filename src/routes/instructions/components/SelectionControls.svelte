@@ -29,17 +29,16 @@
 						onchange={onToggleSelectAll}
 						class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
 					/>
-					<span class="text-sm font-medium text-gray-700">
-						Seleccionar todo ({selectedCount} de {totalInstructions})
-					</span>
+					<span class="text-sm font-medium text-gray-700"> Seleccionar todos los estudios </span>
 				</label>
 			</div>
-
-			{#if selectedCount > 0}
-				<ActionButton onclick={onCopySelected} variant="primary" disabled={isSubmitting}>
-					📋 Copiar Seleccionadas ({selectedCount})
-				</ActionButton>
-			{/if}
+			<ActionButton
+				onclick={onCopySelected}
+				variant="primary"
+				disabled={isSubmitting || selectedCount === 0}
+			>
+				📋 Copiar Seleccionadas ({selectedCount})
+			</ActionButton>
 		</div>
 	</div>
 {/if}

@@ -2,7 +2,12 @@
 	import { fade, fly } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 
-	let { message, type = 'info', duration = 5000, onClose } = $props<{
+	let {
+		message,
+		type = 'info',
+		duration = 5000,
+		onClose
+	} = $props<{
 		message: string;
 		type?: 'success' | 'error' | 'warning' | 'info';
 		duration?: number;
@@ -114,7 +119,7 @@
 
 	$effect(() => {
 		startTimer();
-		
+
 		return () => {
 			clearTimeout(timer);
 			clearInterval(progressInterval);
@@ -124,37 +129,43 @@
 
 {#if visible}
 	<div
-		class="fixed top-4 right-4 z-50 max-w-sm w-full"
+		class="fixed top-4 right-4 z-50 w-full max-w-sm"
 		in:fly={{ y: -50, duration: 300, easing: quintOut }}
 		out:fade={{ duration: 200 }}
 	>
 		<div class="relative overflow-hidden rounded-lg border shadow-lg {getStyles().bg}">
 			<!-- Progress bar -->
-			<div class="absolute bottom-0 left-0 h-1 {getStyles().progress} transition-all duration-100 ease-linear" style="width: {progress}%"></div>
-			
+
 			<div class="flex items-start p-4">
 				<!-- Icon -->
 				<div class="flex-shrink-0 {getStyles().icon}">
 					{@html getIcon()}
 				</div>
-				
+
 				<!-- Message -->
 				<div class="ml-3 flex-1">
 					<p class="text-sm font-medium {getStyles().text}">
 						{message}
 					</p>
 				</div>
-				
+
 				<!-- Close button -->
 				<div class="ml-4 flex flex-shrink-0">
 					<button
 						type="button"
-						class="inline-flex rounded-md {getStyles().text} hover:bg-opacity-20 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent"
+						class="inline-flex rounded-md {getStyles()
+							.text} hover:bg-opacity-20 hover:bg-gray-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
 						onclick={close}
 					>
 						<span class="sr-only">Cerrar</span>
-						<svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+						<svg
+							class="h-5 w-5"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							viewBox="0 0 24 24"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
 				</div>

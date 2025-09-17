@@ -72,6 +72,7 @@ export const instruction = sqliteTable('instruction', {
 	title: text('title').notNull(),
 	description: text('description').notNull(),
 	category: text('category').notNull(), // category to group related instructions
+	order: integer('order').notNull().default(0), // order within category for drag & drop sorting
 	created_at: text('created_at')
 		.notNull()
 		.default(sql`CURRENT_TIMESTAMP`),
