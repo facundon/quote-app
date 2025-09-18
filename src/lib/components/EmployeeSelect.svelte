@@ -5,7 +5,7 @@
 		id = name,
 		value = $bindable(''),
 		required = false,
-		placeholder = 'Seleccionar empleado',
+		placeholder = 'Seleccionar personal',
 		includeAll = false,
 		allLabel = 'Todos',
 		allValue = '',

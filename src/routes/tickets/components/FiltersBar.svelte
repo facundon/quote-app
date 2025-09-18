@@ -36,7 +36,7 @@
 		</div>
 
 		<div class="min-w-56">
-			<div class="mb-1 block text-sm font-medium text-gray-700">Empleado</div>
+			<div class="mb-1 block text-sm font-medium text-gray-700">Personal</div>
 			<EmployeeSelect
 				name="empleadoFilter"
 				bind:value={empleadoFilter}
@@ -44,7 +44,7 @@
 				includeAll={true}
 				allLabel="Todos"
 				allValue=""
-				placeholder="Seleccionar empleado"
+				placeholder="Seleccionar personal"
 			/>
 		</div>
 

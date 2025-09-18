@@ -126,7 +126,7 @@
 					required={true}
 					class="w-full rounded border px-3 py-2"
 					useDefaultStyles={false}
-					placeholder="Seleccionar empleado"
+					placeholder="Seleccionar personal"
 				/>
 			</div>
 		</div>

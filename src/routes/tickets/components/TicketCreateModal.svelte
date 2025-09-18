@@ -58,7 +58,7 @@
 					name="assignee"
 					required={true}
 					{employees}
-					placeholder="Seleccionar empleado"
+					placeholder="Seleccionar personal"
 				/>
 			</div>
 
