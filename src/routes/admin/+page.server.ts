@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
-import { category, study, discount, provider, invoice } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { category, study, discount, provider, invoice, instruction } from '$lib/server/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 
 export async function load() {
@@ -31,7 +31,13 @@ export async function load() {
 			provider_id: invoice.provider_id
 		})
 		.from(invoice);
-	return { categories, studies, discounts, providers, invoices };
+
+	const instructions = await db
+		.select()
+		.from(instruction)
+		.orderBy(instruction.category, instruction.order);
+
+	return { categories, studies, discounts, providers, invoices, instructions };
 }
 
 export const actions = {
@@ -249,6 +255,96 @@ export const actions = {
 			return { success: true };
 		} catch {
 			return fail(500, { error: 'Error al eliminar el proveedor.' });
+		}
+	},
+
+	// Instrucciones (admin)
+	instruction_create: async ({ request }) => {
+		const form = await request.formData();
+		const title = form.get('title');
+		const description = form.get('description');
+		const categoryValue = form.get('category');
+		if (!title || !description || !categoryValue) {
+			return fail(400, { error: 'Faltan campos requeridos.' });
+		}
+		try {
+			const maxOrderResult = await db
+				.select({ maxOrder: instruction.order })
+				.from(instruction)
+				.where(eq(instruction.category, String(categoryValue)))
+				.orderBy(desc(instruction.order))
+				.limit(1);
+			const nextOrder = maxOrderResult.length > 0 ? (maxOrderResult[0].maxOrder || 0) + 1 : 0;
+			await db.insert(instruction).values({
+				title: String(title),
+				description: String(description),
+				category: String(categoryValue),
+				order: nextOrder,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			});
+			return { success: true, message: 'Instrucción creada exitosamente.' };
+		} catch (error) {
+			return fail(500, { error: 'Error al crear la instrucción.' });
+		}
+	},
+	instruction_edit: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		const title = form.get('title');
+		const description = form.get('description');
+		const categoryValue = form.get('category');
+		if (!id || !title || !description || !categoryValue) {
+			return fail(400, { error: 'Faltan campos requeridos.' });
+		}
+		try {
+			await db
+				.update(instruction)
+				.set({
+					title: String(title),
+					description: String(description),
+					category: String(categoryValue),
+					updated_at: new Date().toISOString()
+				})
+				.where(eq(instruction.id, Number(id)));
+			return { success: true, message: 'Instrucción actualizada exitosamente.' };
+		} catch (error) {
+			return fail(500, { error: 'Error al actualizar la instrucción.' });
+		}
+	},
+	instruction_delete: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('id');
+		if (!id) {
+			return fail(400, { error: 'Falta el id.' });
+		}
+		try {
+			await db.delete(instruction).where(eq(instruction.id, Number(id)));
+			return { success: true, message: 'Instrucción eliminada exitosamente.' };
+		} catch (error) {
+			return fail(500, { error: 'Error al eliminar la instrucción.' });
+		}
+	},
+	instruction_reorder: async ({ request }) => {
+		const form = await request.formData();
+		const instructionIds = form.get('instructionIds');
+		const categoryValue = form.get('category');
+		if (!instructionIds || !categoryValue) {
+			return fail(400, { error: 'Faltan datos requeridos.' });
+		}
+		try {
+			const ids = JSON.parse(String(instructionIds)) as number[];
+			await Promise.all(
+				ids.map((id, index) =>
+					db
+						.update(instruction)
+						.set({ order: index, updated_at: new Date().toISOString() })
+						.where(eq(instruction.id, id))
+				)
+			);
+			return { success: true, message: 'Orden actualizado exitosamente.' };
+		} catch (error) {
+			return fail(500, { error: 'Error al reordenar las instrucciones.' });
 		}
 	}
 };

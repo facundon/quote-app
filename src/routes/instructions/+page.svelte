@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import Modal from '$lib/components/Modal.svelte';
-	import ActionButton from '$lib/components/ActionButton.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import SelectionControls from './components/SelectionControls.svelte';
 	import InstructionColumn from './components/InstructionColumn.svelte';
-	import InstructionCreateForm from './components/InstructionCreateForm.svelte';
-	import InstructionEditForm from './components/InstructionEditForm.svelte';
 	import type { Instruction } from '$lib/server/db/schema';
 
 	interface PageData {
@@ -18,16 +14,11 @@
 
 	let { data }: { data: PageData } = $props();
 
-	// Estados para los modales
-	let showCreateModal = $state(false);
-	let showEditModal = $state(false);
-	let editingInstruction = $state<Instruction | null>(null);
-
 	// Estados para selección múltiple
 	let selectedInstructions = $state<Set<number>>(new Set());
 	let selectAll = $state(false);
 
-	// Estados para el formulario
+	// Estados para el formulario (solo para acciones de copia)
 	let isSubmitting = $state(false);
 	let toastMessage = $state('');
 	let toastType = $state<'success' | 'error'>('success');
@@ -105,8 +96,8 @@
 			return;
 		}
 
-		// Copiar solo título y descripción, en el orden seleccionado, en múltiples líneas
-		const blocks = selected.map((i) => `${i.title}\n${i.description}`);
+		// Copiar solo la descripción, en el orden seleccionado, en múltiples líneas
+		const blocks = selected.map((i) => `${i.description}`);
 		const textToCopy = blocks.join('\n\n');
 
 		try {
@@ -147,45 +138,6 @@
 	function closeToast() {
 		showToast = false;
 	}
-
-	// Función para abrir modal de edición
-	function openEditModal(instruction: Instruction) {
-		editingInstruction = instruction;
-		showEditModal = true;
-	}
-
-	// Función para cerrar modales
-	function closeModals() {
-		showCreateModal = false;
-		showEditModal = false;
-		editingInstruction = null;
-		isSubmitting = false;
-	}
-
-	// Función para manejar resultados de formularios
-	async function handleFormResult(result: any) {
-		// Handle different types of form results from SvelteKit
-		if (result.type === 'success') {
-			// Check if the action returned success data
-			if (result.data?.success) {
-				showToastMessage(result.data.message || 'Operación exitosa', 'success');
-				closeModals();
-				await invalidateAll();
-			} else {
-				// Default success message
-				showToastMessage('Operación exitosa', 'success');
-				closeModals();
-				await invalidateAll();
-			}
-		} else if (result.type === 'failure') {
-			// Handle validation or business logic errors
-			showToastMessage(result.data?.error || 'Error en la operación', 'error');
-		} else if (result.type === 'error') {
-			// Handle unexpected errors
-			showToastMessage('Error inesperado', 'error');
-		}
-		isSubmitting = false;
-	}
 </script>
 
 <svelte:head>
@@ -196,13 +148,6 @@
 	<div class="rounded-xl bg-white p-8 shadow-lg">
 		<div class="mb-6 flex items-center justify-between">
 			<h1 class="text-3xl font-extrabold text-blue-900">Instrucciones</h1>
-			<ActionButton
-				onclick={() => (showCreateModal = true)}
-				variant="primary"
-				disabled={isSubmitting}
-			>
-				📝 Nueva Instrucción
-			</ActionButton>
 		</div>
 
 		<!-- Controles de selección y copia - globales (solo afectan 'estudios') -->
@@ -225,41 +170,16 @@
 					instructions={instructionsByCategory()[category] || []}
 					{selectedInstructions}
 					onToggleSelection={toggleSelection}
-					onEdit={openEditModal}
-					onFormResult={handleFormResult}
-					onCreateNew={() => (showCreateModal = true)}
+					enableReorder={false}
+					showActions={false}
+					showSelection={true}
 				/>
 			{/each}
 		</div>
 	</div>
 </div>
 
-<!-- Modal de crear instrucción -->
-{#if showCreateModal}
-	<Modal title="Nueva Instrucción" show={showCreateModal} onClose={closeModals} size="medium">
-		<InstructionCreateForm
-			{isSubmitting}
-			{defaultCategories}
-			onCancel={closeModals}
-			onFormResult={handleFormResult}
-			onSubmitStart={() => (isSubmitting = true)}
-		/>
-	</Modal>
-{/if}
-
-<!-- Modal de editar instrucción -->
-{#if showEditModal && editingInstruction}
-	<Modal title="Editar Instrucción" show={showEditModal} onClose={closeModals} size="medium">
-		<InstructionEditForm
-			instruction={editingInstruction}
-			{isSubmitting}
-			{defaultCategories}
-			onCancel={closeModals}
-			onFormResult={handleFormResult}
-			onSubmitStart={() => (isSubmitting = true)}
-		/>
-	</Modal>
-{/if}
+<!-- Sin modales en vista pública; solo selección y copia -->
 
 <!-- Toast notifications -->
 {#if showToast}

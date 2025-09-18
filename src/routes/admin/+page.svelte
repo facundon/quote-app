@@ -4,6 +4,7 @@
 	import DiscountsTab from './discounts/DiscountsTab.svelte';
 	import ProvidersTab from './providers/ProvidersTab.svelte';
 	import { fly } from 'svelte/transition';
+	import InstructionsTab from './instructions/InstructionsTab.svelte';
 	import { isAuthenticated, logout } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import LoginForm from '$lib/components/LoginForm.svelte';
@@ -14,11 +15,18 @@
 		CATEGORIES: 'categories',
 		STUDIES: 'studies',
 		DISCOUNTS: 'discounts',
-		PROVIDERS: 'providers'
+		PROVIDERS: 'providers',
+		INSTRUCTIONS: 'instructions'
 	} as const;
 
 	type TabKey = (typeof TABS)[keyof typeof TABS];
-	const TAB_ORDER: TabKey[] = [TABS.CATEGORIES, TABS.STUDIES, TABS.DISCOUNTS, TABS.PROVIDERS];
+	const TAB_ORDER: TabKey[] = [
+		TABS.CATEGORIES,
+		TABS.STUDIES,
+		TABS.DISCOUNTS,
+		TABS.PROVIDERS,
+		TABS.INSTRUCTIONS
+	];
 
 	let activeTab = $state<TabKey>(TABS.CATEGORIES);
 	// svelte-ignore non_reactive_update
@@ -32,6 +40,7 @@
 	let discounts = $derived(data.discounts);
 	let providers = $derived(data.providers);
 	let invoices = $derived(data.invoices);
+	let instructions = $derived(data.instructions);
 
 	function setTab(tab: TabKey) {
 		const newIndex = TAB_ORDER.indexOf(tab);
@@ -119,6 +128,20 @@
 				>
 					Proveedores
 				</button>
+				<button
+					class="tab-btn relative flex-1 rounded-t-md px-4 py-2 transition-colors duration-200 focus:outline-none"
+					class:bg-white={activeTab === TABS.INSTRUCTIONS}
+					class:shadow-md={activeTab === TABS.INSTRUCTIONS}
+					class:!border-b-4={activeTab === TABS.INSTRUCTIONS}
+					class:!border-blue-600={activeTab === TABS.INSTRUCTIONS}
+					class:text-blue-900={activeTab === TABS.INSTRUCTIONS}
+					class:font-semibold={activeTab === TABS.INSTRUCTIONS}
+					class:text-gray-700={activeTab !== TABS.INSTRUCTIONS}
+					class:font-normal={activeTab !== TABS.INSTRUCTIONS}
+					onclick={() => setTab(TABS.INSTRUCTIONS)}
+				>
+					Instrucciones
+				</button>
 			</div>
 
 			<div class="relative">
@@ -140,6 +163,10 @@
 							<div out:fly={{ x: -direction * 300, duration: 250 }}>
 								<ProvidersTab {providers} {invoices} />
 							</div>
+						{:else if prevTab === TABS.INSTRUCTIONS}
+							<div out:fly={{ x: -direction * 300, duration: 250 }}>
+								<InstructionsTab {instructions} />
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -158,6 +185,10 @@
 				{:else if activeTab === TABS.PROVIDERS}
 					<div in:fly={{ x: direction * 300, duration: 250 }}>
 						<ProvidersTab {providers} {invoices} />
+					</div>
+				{:else if activeTab === TABS.INSTRUCTIONS}
+					<div in:fly={{ x: direction * 300, duration: 250 }}>
+						<InstructionsTab {instructions} />
 					</div>
 				{/if}
 			</div>

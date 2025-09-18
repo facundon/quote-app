@@ -7,10 +7,12 @@
 	import ActionButton from '$lib/components/ActionButton.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import Menu from '$lib/components/Menu.svelte';
+	import EmployeeSelect from '$lib/components/EmployeeSelect.svelte';
 	import type { Ticket } from '$lib/server/db/schema';
 
 	interface PageData {
 		tickets: Ticket[];
+		employees: string[];
 	}
 
 	let { data }: { data: PageData } = $props();
@@ -25,6 +27,7 @@
 	let prioridadFilter = $state('all');
 	let searchTerm = $state('');
 	let selectedView = $state<'grid' | 'list'>('grid');
+	let empleadoFilter = $state('');
 
 	// Estados para el formulario
 	let isSubmitting = $state(false);
@@ -36,7 +39,7 @@
 	const statusOptions = [
 		{
 			value: 'open',
-			label: 'Abierto',
+			label: 'Pendiente',
 			color: 'bg-blue-100 text-blue-800 border-blue-200',
 			icon: '🔵'
 		},
@@ -85,12 +88,23 @@
 	let filteredTickets = $derived(() => {
 		let filtered: Ticket[] = data.tickets;
 
-		if (statusFilter !== 'all') {
+		if (statusFilter === 'all') {
+			// Por defecto no mostrar resueltos a menos que se filtre explícitamente
+			filtered = filtered.filter((ticket) => ticket.status !== 'resolved');
+		} else {
 			filtered = filtered.filter((ticket) => ticket.status === statusFilter);
 		}
 
 		if (prioridadFilter !== 'all') {
 			filtered = filtered.filter((ticket) => ticket.priority === prioridadFilter);
+		}
+
+		if (empleadoFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
+		}
+
+		if (empleadoFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
 		}
 
 		if (searchTerm) {
@@ -105,6 +119,45 @@
 
 		return filtered;
 	});
+
+	// Base filtrado sin aplicar estado (para contadores del quick filter)
+	let baseFilteredTickets = $derived(() => {
+		let filtered: Ticket[] = data.tickets;
+
+		if (prioridadFilter !== 'all') {
+			filtered = filtered.filter((ticket) => ticket.priority === prioridadFilter);
+		}
+
+		if (empleadoFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
+		}
+
+		if (searchTerm) {
+			const search = searchTerm.toLowerCase();
+			filtered = filtered.filter(
+				(ticket) =>
+					ticket.title.toLowerCase().includes(search) ||
+					ticket.description.toLowerCase().includes(search) ||
+					(ticket.assignee && ticket.assignee.toLowerCase().includes(search))
+			);
+		}
+
+		return filtered;
+	});
+
+	let quickCounts = $derived(() => {
+		const base = baseFilteredTickets();
+		const nonResolved = base.filter((t) => t.status !== 'resolved').length;
+		const resolved = base.filter((t) => t.status === 'resolved').length;
+		return { nonResolved, resolved };
+	});
+
+	// Agrupaciones por estado para la vista de columnas
+	let pendingTickets = $derived(() => filteredTickets().filter((t) => t.status === 'open'));
+	let inProgressTickets = $derived(() =>
+		filteredTickets().filter((t) => t.status === 'in_progress')
+	);
+	let resolvedTickets = $derived(() => filteredTickets().filter((t) => t.status === 'resolved'));
 
 	// Estadísticas
 	let ticketStats = $derived(() => {
@@ -170,6 +223,122 @@
 		return 'hace un momento';
 	}
 
+	// Colores por usuario: generar colores HSL distintos por nombre
+	function hashStringToHue(value: string): number {
+		let hash = 0;
+		for (let index = 0; index < value.length; index++) {
+			hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+		}
+		return hash % 360;
+	}
+
+	function getAssigneeStyle(name: string | null): { bg: string; text: string } {
+		if (!name) {
+			// Gris por defecto cuando no hay asignado
+			return { bg: 'hsl(210, 20%, 90%)', text: 'hsl(215, 25%, 27%)' };
+		}
+		const hue = hashStringToHue(name);
+		return {
+			bg: `hsl(${hue}, 85%, 88%)`,
+			text: `hsl(${hue}, 60%, 35%)`
+		};
+	}
+
+	// Drag & Drop (grid: pendientes <-> en progreso)
+	let draggedTicketId = $state<number | null>(null);
+	let draggedFromStatus = $state<'open' | 'in_progress' | 'resolved' | null>(null);
+	let openDropActive = $state(false);
+	let inProgressDropActive = $state(false);
+
+	function onTicketDragStart(ticket: Ticket, event: DragEvent) {
+		draggedTicketId = ticket.id;
+		draggedFromStatus = ticket.status as 'open' | 'in_progress' | 'resolved';
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			event.dataTransfer.setData('text/plain', String(ticket.id));
+			event.dataTransfer.setData('application/x-ticket-status', ticket.status);
+		}
+	}
+
+	function onTicketDragEnd() {
+		draggedTicketId = null;
+		draggedFromStatus = null;
+	}
+
+	function onColumnDragOver(event: DragEvent) {
+		// Allow drop when dragging a ticket
+		if (draggedTicketId !== null) {
+			event.preventDefault();
+		}
+	}
+
+	function onOpenDragOver(event: DragEvent) {
+		if (draggedTicketId !== null) {
+			event.preventDefault();
+			openDropActive = true;
+			inProgressDropActive = false;
+		}
+	}
+
+	function onInProgressDragOver(event: DragEvent) {
+		if (draggedTicketId !== null) {
+			event.preventDefault();
+			inProgressDropActive = true;
+			openDropActive = false;
+		}
+	}
+
+	function onOpenDragLeave() {
+		openDropActive = false;
+	}
+
+	function onInProgressDragLeave() {
+		inProgressDropActive = false;
+	}
+
+	async function onColumnDrop(destinationStatus: 'open' | 'in_progress', event: DragEvent) {
+		event.preventDefault();
+		// Fallback to dataTransfer if needed
+		if (draggedTicketId == null && event.dataTransfer) {
+			const idText = event.dataTransfer.getData('text/plain');
+			if (idText) draggedTicketId = Number(idText) || null;
+			const src = event.dataTransfer.getData('application/x-ticket-status') as
+				| 'open'
+				| 'in_progress'
+				| 'resolved';
+			draggedFromStatus = src || draggedFromStatus;
+		}
+
+		if (!draggedFromStatus || draggedFromStatus === destinationStatus || draggedTicketId == null) {
+			inProgressDropActive = false;
+			return;
+		}
+
+		try {
+			isSubmitting = true;
+			const formData = new FormData();
+			formData.append('id', String(draggedTicketId));
+			formData.append('status', destinationStatus);
+
+			const response = await fetch('?/updateStatus', { method: 'POST', body: formData });
+			const result = await response.json().catch(() => ({}));
+
+			if (response.ok || (result && result.type === 'success')) {
+				showToastMessage('Estado actualizado exitosamente', 'success');
+				invalidateAll();
+			} else {
+				showToastMessage('Error al actualizar el estado', 'error');
+			}
+		} catch (err) {
+			showToastMessage('Error al actualizar el estado', 'error');
+		} finally {
+			isSubmitting = false;
+			onTicketDragEnd();
+			openDropActive = false;
+			inProgressDropActive = false;
+		}
+	}
+
 	function showToastMessage(message: string, type: 'success' | 'error') {
 		toastMessage = message;
 		toastType = type;
@@ -185,6 +354,7 @@
 		statusFilter = 'all';
 		prioridadFilter = 'all';
 		searchTerm = '';
+		empleadoFilter = '';
 	}
 
 	// Función para confirmar eliminación
@@ -342,7 +512,7 @@
 				</div>
 				<div class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
 					<div class="text-2xl font-bold text-blue-900">{ticketStats().open}</div>
-					<div class="text-sm text-blue-700">Abiertos</div>
+					<div class="text-sm text-blue-700">Pendientes</div>
 				</div>
 				<div class="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center">
 					<div class="text-2xl font-bold text-yellow-900">{ticketStats().inProgress}</div>
@@ -357,7 +527,8 @@
 
 		<!-- Filtros y búsqueda -->
 		<div class="mb-6 rounded-lg bg-gray-50 p-6">
-			<div class="flex flex-wrap items-center gap-4">
+			<!-- Row 1: Search + Empleado -->
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 				<div class="min-w-64 flex-1">
 					<label for="search" class="mb-1 block text-sm font-medium text-gray-700">
 						🔍 Buscar tickets
@@ -371,52 +542,112 @@
 					/>
 				</div>
 
-				<div>
-					<label for="status-filter" class="mb-1 block text-sm font-medium text-gray-700">
-						Estado
-					</label>
-					<select
-						id="status-filter"
-						bind:value={statusFilter}
-						class="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-					>
-						<option value="all">Todos los estados</option>
-						{#each statusOptions as option}
-							<option value={option.value}>{option.icon} {option.label}</option>
-						{/each}
-					</select>
+				<!-- Filtro por empleado -->
+				<div class="min-w-56">
+					<div class="mb-1 block text-sm font-medium text-gray-700">Empleado</div>
+					<EmployeeSelect
+						name="empleadoFilter"
+						bind:value={empleadoFilter}
+						employees={data.employees}
+						includeAll={true}
+						allLabel="Todos"
+						allValue=""
+						placeholder="Seleccionar empleado"
+					/>
 				</div>
 
-				<div>
-					<label for="prioridad-filter" class="mb-1 block text-sm font-medium text-gray-700">
-						Prioridad
-					</label>
-					<select
-						id="prioridad-filter"
-						bind:value={prioridadFilter}
-						class="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-					>
-						<option value="all">Todas las prioridades</option>
-						{#each prioridadOptions as option}
-							<option value={option.value}>{option.icon} {option.label}</option>
-						{/each}
-					</select>
-				</div>
+				<!-- Row 2: Estados + Prioridad + Limpiar -->
+				<div class="mt-4 flex w-full items-end gap-4 md:col-span-2">
+					<div class="flex min-w-0 flex-1 items-end gap-4">
+						<div>
+							<div class="mb-1 block text-sm font-medium text-gray-700">Estados</div>
+							<div class="flex items-center gap-2">
+								<button
+									onclick={() => (statusFilter = 'all')}
+									class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus:outline-none"
+									class:bg-blue-600={statusFilter === 'all'}
+									class:text-white={statusFilter === 'all'}
+									class:border-blue-600={statusFilter === 'all'}
+									class:ring-2={statusFilter === 'all'}
+									class:ring-blue-200={statusFilter === 'all'}
+									class:bg-white={statusFilter !== 'all'}
+									class:text-blue-700={statusFilter !== 'all'}
+									class:border-blue-300={statusFilter !== 'all'}
+									aria-pressed={statusFilter === 'all'}
+								>
+									<span
+										class="h-2 w-2 rounded-full"
+										class:bg-white={statusFilter === 'all'}
+										class:bg-blue-600={statusFilter !== 'all'}
+									></span>
+									No resueltos
+									<span
+										class="rounded px-2 py-0.5 text-xs font-semibold"
+										class:bg-blue-500={statusFilter === 'all'}
+										class:text-white={statusFilter === 'all'}
+										class:bg-blue-50={statusFilter !== 'all'}
+										class:text-blue-800={statusFilter !== 'all'}>{quickCounts().nonResolved}</span
+									>
+								</button>
+								<button
+									onclick={() => (statusFilter = 'resolved')}
+									class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors focus:outline-none"
+									class:bg-green-600={statusFilter === 'resolved'}
+									class:text-white={statusFilter === 'resolved'}
+									class:border-green-600={statusFilter === 'resolved'}
+									class:ring-2={statusFilter === 'resolved'}
+									class:ring-green-200={statusFilter === 'resolved'}
+									class:bg-white={statusFilter !== 'resolved'}
+									class:text-green-700={statusFilter !== 'resolved'}
+									class:border-green-300={statusFilter !== 'resolved'}
+									aria-pressed={statusFilter === 'resolved'}
+								>
+									<span
+										class="h-2 w-2 rounded-full"
+										class:bg-white={statusFilter === 'resolved'}
+										class:bg-green-600={statusFilter !== 'resolved'}
+									></span>
+									Resueltos
+									<span
+										class="rounded px-2 py-0.5 text-xs font-semibold"
+										class:bg-green-500={statusFilter === 'resolved'}
+										class:text-white={statusFilter === 'resolved'}
+										class:bg-green-50={statusFilter !== 'resolved'}
+										class:text-green-800={statusFilter !== 'resolved'}
+										>{quickCounts().resolved}</span
+									>
+								</button>
+							</div>
+						</div>
 
-				{#if statusFilter !== 'all' || prioridadFilter !== 'all' || searchTerm}
-					<div class="self-end">
-						<button
-							onclick={clearFilters}
-							class="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300"
-						>
-							🗑️ Limpiar filtros
-						</button>
+						<div>
+							<label for="prioridad-filter" class="mb-1 block text-sm font-medium text-gray-700">
+								Prioridad
+							</label>
+							<select
+								id="prioridad-filter"
+								bind:value={prioridadFilter}
+								class="rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+							>
+								<option value="all">Todas las prioridades</option>
+								{#each prioridadOptions as option}
+									<option value={option.value}>{option.icon} {option.label}</option>
+								{/each}
+							</select>
+						</div>
 					</div>
-				{/if}
-			</div>
 
-			<div class="mt-4 text-sm text-gray-600">
-				Mostrando {filteredTickets().length} de {data.tickets.length} tickets
+					<div class="ml-auto shrink-0 text-right">
+						{#if statusFilter !== 'all' || prioridadFilter !== 'all' || searchTerm || empleadoFilter}
+							<button
+								onclick={clearFilters}
+								class="inline-flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium whitespace-nowrap text-gray-700 transition-colors hover:bg-gray-300"
+							>
+								🗑️ Limpiar filtros
+							</button>
+						{/if}
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -445,68 +676,265 @@
 				{/if}
 			</div>
 		{:else if selectedView === 'grid'}
-			<!-- Vista Grid -->
-			<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				{#each filteredTickets() as ticket (ticket.id)}
-					<div
-						class="rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
-						in:scale={{ duration: 300, delay: Math.random() * 100, easing: quintOut }}
-					>
-						<!-- Header compacto con ID, prioridad, estado y menú -->
-						<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-							<div class="flex items-center gap-2">
-								<span class="font-mono text-xs text-gray-500">#{ticket.id}</span>
-								<span
-									class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {getPrioridadInfo(
-										ticket.priority
-									).color}"
-								>
-									{getPrioridadInfo(ticket.priority).icon}
-									{getPrioridadInfo(ticket.priority).label}
-								</span>
-								<span
-									class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {getStatusInfo(
-										ticket.status
-									).color}"
-								>
-									{getStatusInfo(ticket.status).icon}
-									{getStatusInfo(ticket.status).label}
-								</span>
-							</div>
-							<Menu options={getTicketMenuOptions(ticket)} />
+			<!-- Vista agrupada por estado -->
+			{#if statusFilter === 'resolved'}
+				<div class="grid gap-4 md:grid-cols-1">
+					<div class="space-y-3">
+						<div
+							class="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2"
+						>
+							<div class="text-sm font-semibold text-green-800">Resueltos</div>
+							<div class="text-sm font-bold text-green-900">{resolvedTickets().length}</div>
 						</div>
-
-						<!-- Contenido principal -->
-						<div class="px-6 py-4">
-							<!-- Título -->
-							<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">{ticket.title}</h3>
-
-							<!-- Descripción -->
-							<p class="text-sm text-gray-600">{ticket.description}</p>
-						</div>
-
-						<!-- Footer: Asignado, fecha y botón de estado -->
-						<div class="border-t border-gray-100 px-6 py-3">
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<div class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100">
-										<span class="text-xs font-medium text-blue-600">
-											{ticket.assignee ? ticket.assignee.charAt(0).toUpperCase() : '?'}
+						{#each resolvedTickets() as ticket (ticket.id)}
+							<div
+								class="rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+								in:scale={{ duration: 300, delay: Math.random() * 100, easing: quintOut }}
+							>
+								<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-xs text-gray-500">#{ticket.id}</span>
+										<span
+											class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {getPrioridadInfo(
+												ticket.priority
+											).color}"
+										>
+											{getPrioridadInfo(ticket.priority).icon}
+											{getPrioridadInfo(ticket.priority).label}
 										</span>
 									</div>
-									<span class="text-sm font-medium text-gray-700">
-										{ticket.assignee || 'Sin asignar'}
-									</span>
+									<Menu options={getTicketMenuOptions(ticket)} />
 								</div>
-								<div class="text-right">
-									<div class="text-xs text-gray-500">{formatDate(ticket.created_at)}</div>
-									<div class="text-xs text-gray-400">{getTimeAgo(ticket.created_at)}</div>
+
+								<div class="px-6 py-4">
+									<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
+										{ticket.title}
+									</h3>
+									<p class="text-sm text-gray-600">{ticket.description}</p>
+								</div>
+
+								<div class="border-t border-gray-100 px-6 py-3">
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-2">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-full"
+												style:background-color={getAssigneeStyle(ticket.assignee).bg}
+											>
+												<span
+													class="text-sm font-semibold"
+													style:color={getAssigneeStyle(ticket.assignee).text}
+												>
+													{ticket.assignee ? ticket.assignee.charAt(0).toUpperCase() : '?'}
+												</span>
+											</div>
+											<span
+												class="text-base font-semibold"
+												style:color={getAssigneeStyle(ticket.assignee).text}
+											>
+												{ticket.assignee || 'Sin asignar'}
+											</span>
+										</div>
+										<div class="text-right">
+											<div class="text-xs text-gray-500">{formatDate(ticket.created_at)}</div>
+											<div class="text-xs text-gray-400">{getTimeAgo(ticket.created_at)}</div>
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
+						{:else}
+							<div
+								class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center text-sm text-gray-600"
+							>
+								No hay tickets resueltos
+							</div>
+						{/each}
 					</div>
-				{/each}
-			</div>
+				</div>
+			{:else}
+				<div class="grid gap-4 md:grid-cols-2">
+					<!-- Columna Pendientes -->
+					<div
+						class="space-y-3"
+						ondragover={onOpenDragOver}
+						ondragleave={onOpenDragLeave}
+						ondrop={(e) => onColumnDrop('open', e)}
+						role="list"
+						aria-label="Columna Pendientes"
+						class:ring-2={openDropActive}
+						class:ring-blue-300={openDropActive}
+						class:ring-offset-2={openDropActive}
+					>
+						<div
+							class="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2"
+						>
+							<div class="text-sm font-semibold text-blue-800">Pendientes</div>
+							<div class="text-sm font-bold text-blue-900">{pendingTickets().length}</div>
+						</div>
+						{#if openDropActive}{/if}
+
+						{#each pendingTickets() as ticket (ticket.id)}
+							<div
+								class="rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+								in:scale={{ duration: 300, delay: Math.random() * 100, easing: quintOut }}
+								draggable={true}
+								ondragstart={(e) => onTicketDragStart(ticket, e)}
+								ondragend={onTicketDragEnd}
+								role="listitem"
+								aria-label={`Ticket #${ticket.id}`}
+								title="Arrastrar para mover de estado"
+								class:cursor-grab={true}
+								class:active:cursor-grabbing={true}
+							>
+								<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-xs text-gray-500">#{ticket.id}</span>
+										<span
+											class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {getPrioridadInfo(
+												ticket.priority
+											).color}"
+										>
+											{getPrioridadInfo(ticket.priority).icon}
+											{getPrioridadInfo(ticket.priority).label}
+										</span>
+									</div>
+									<Menu options={getTicketMenuOptions(ticket)} />
+								</div>
+
+								<div class="px-6 py-4">
+									<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
+										{ticket.title}
+									</h3>
+									<p class="text-sm text-gray-600">{ticket.description}</p>
+								</div>
+
+								<div class="border-t border-gray-100 px-6 py-3">
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-2">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-full"
+												style:background-color={getAssigneeStyle(ticket.assignee).bg}
+											>
+												<span
+													class="text-sm font-semibold"
+													style:color={getAssigneeStyle(ticket.assignee).text}
+												>
+													{ticket.assignee ? ticket.assignee.charAt(0).toUpperCase() : '?'}
+												</span>
+											</div>
+											<span
+												class="text-base font-semibold"
+												style:color={getAssigneeStyle(ticket.assignee).text}
+											>
+												{ticket.assignee || 'Sin asignar'}
+											</span>
+										</div>
+										<div class="text-right">
+											<div class="text-xs text-gray-500">{formatDate(ticket.created_at)}</div>
+											<div class="text-xs text-gray-400">{getTimeAgo(ticket.created_at)}</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div
+								class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center text-sm text-gray-600"
+							>
+								No hay tickets pendientes
+							</div>
+						{/each}
+					</div>
+
+					<!-- Columna En Progreso -->
+					<div
+						class="space-y-3"
+						ondragover={onInProgressDragOver}
+						ondragleave={onInProgressDragLeave}
+						ondrop={(e) => onColumnDrop('in_progress', e)}
+						role="list"
+						aria-label="Columna En Progreso"
+						class:ring-2={inProgressDropActive}
+						class:ring-yellow-300={inProgressDropActive}
+						class:ring-offset-2={inProgressDropActive}
+					>
+						<div
+							class="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2"
+						>
+							<div class="text-sm font-semibold text-yellow-800">En Progreso</div>
+							<div class="text-sm font-bold text-yellow-900">{inProgressTickets().length}</div>
+						</div>
+						{#each inProgressTickets() as ticket (ticket.id)}
+							<div
+								class="rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+								in:scale={{ duration: 300, delay: Math.random() * 100, easing: quintOut }}
+								draggable={true}
+								ondragstart={(e) => onTicketDragStart(ticket, e)}
+								ondragend={onTicketDragEnd}
+								role="listitem"
+								aria-label={`Ticket #${ticket.id}`}
+								title="Arrastrar para mover de estado"
+								class:cursor-grab={true}
+								class:active:cursor-grabbing={true}
+							>
+								<div class="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-xs text-gray-500">#{ticket.id}</span>
+										<span
+											class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium {getPrioridadInfo(
+												ticket.priority
+											).color}"
+										>
+											{getPrioridadInfo(ticket.priority).icon}
+											{getPrioridadInfo(ticket.priority).label}
+										</span>
+									</div>
+									<Menu options={getTicketMenuOptions(ticket)} />
+								</div>
+
+								<div class="px-6 py-4">
+									<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
+										{ticket.title}
+									</h3>
+									<p class="text-sm text-gray-600">{ticket.description}</p>
+								</div>
+
+								<div class="border-t border-gray-100 px-6 py-3">
+									<div class="flex items-center justify-between">
+										<div class="flex items-center gap-2">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-full"
+												style:background-color={getAssigneeStyle(ticket.assignee).bg}
+											>
+												<span
+													class="text-sm font-semibold"
+													style:color={getAssigneeStyle(ticket.assignee).text}
+												>
+													{ticket.assignee ? ticket.assignee.charAt(0).toUpperCase() : '?'}
+												</span>
+											</div>
+											<span
+												class="text-base font-semibold"
+												style:color={getAssigneeStyle(ticket.assignee).text}
+											>
+												{ticket.assignee || 'Sin asignar'}
+											</span>
+										</div>
+										<div class="text-right">
+											<div class="text-xs text-gray-500">{formatDate(ticket.created_at)}</div>
+											<div class="text-xs text-gray-400">{getTimeAgo(ticket.created_at)}</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div
+								class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center text-sm text-gray-600"
+							>
+								No hay tickets en progreso
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		{:else}
 			<!-- Vista Lista -->
 			<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -585,8 +1013,26 @@
 										{getPrioridadInfo(ticket.priority).label}
 									</span>
 								</td>
-								<td class="px-6 py-4 text-sm whitespace-nowrap text-gray-900">
-									{ticket.assignee || 'Sin asignar'}
+								<td class="px-6 py-4 whitespace-nowrap">
+									<div class="flex items-center gap-2">
+										<div
+											class="flex h-8 w-8 items-center justify-center rounded-full"
+											style:background-color={getAssigneeStyle(ticket.assignee).bg}
+										>
+											<span
+												class="text-sm font-semibold"
+												style:color={getAssigneeStyle(ticket.assignee).text}
+											>
+												{ticket.assignee ? ticket.assignee.charAt(0).toUpperCase() : '?'}
+											</span>
+										</div>
+										<span
+											class="text-base font-semibold"
+											style:color={getAssigneeStyle(ticket.assignee).text}
+										>
+											{ticket.assignee || 'Sin asignar'}
+										</span>
+									</div>
 								</td>
 								<td class="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
 									<div>{formatDate(ticket.created_at)}</div>
@@ -648,13 +1094,12 @@
 					<label for="assignee" class="mb-2 block text-sm font-medium text-gray-700">
 						👤 Asignar a *
 					</label>
-					<input
-						type="text"
+					<EmployeeSelect
 						id="assignee"
 						name="assignee"
-						required
-						class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-						placeholder="Nombre de la persona responsable"
+						required={true}
+						employees={data.employees}
+						placeholder="Seleccionar empleado"
 					/>
 				</div>
 
@@ -746,13 +1191,13 @@
 					<label for="edit-assignee" class="mb-2 block text-sm font-medium text-gray-700">
 						👤 Asignar a *
 					</label>
-					<input
-						type="text"
+					<EmployeeSelect
 						id="edit-assignee"
 						name="assignee"
+						required={true}
+						employees={data.employees}
 						value={editingTicket.assignee || ''}
-						required
-						class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+						placeholder="Seleccionar empleado"
 					/>
 				</div>
 

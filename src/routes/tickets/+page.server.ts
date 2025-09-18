@@ -7,10 +7,22 @@ import type { Actions, ServerLoad, RequestEvent } from '@sveltejs/kit';
 export const load: ServerLoad = async () => {
 	try {
 		const tickets = await db.select().from(ticket).orderBy(desc(ticket.created_at));
-		return { tickets };
+		const employees = [
+			'Milton',
+			'Lore',
+			'Gemy',
+			'Anyi',
+			'Nani',
+			'Eri',
+			'Nati',
+			'Mari',
+			'Vik',
+			'Doc'
+		];
+		return { tickets, employees };
 	} catch (error) {
 		console.error('Error loading tickets:', error);
-		return { tickets: [] };
+		return { tickets: [], employees: [] };
 	}
 };
 

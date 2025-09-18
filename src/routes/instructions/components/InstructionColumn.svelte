@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import InstructionCard from './InstructionCard.svelte';
 	import type { Instruction } from '$lib/server/db/schema';
+	import { toastHelpers } from '$lib/utils/toast.js';
 
 	let {
 		category,
@@ -10,15 +11,21 @@
 		onToggleSelection,
 		onEdit,
 		onFormResult,
-		onCreateNew
+		onCreateNew,
+		enableReorder = true,
+		showActions = true,
+		showSelection = true
 	}: {
 		category: string;
 		instructions: Instruction[];
 		selectedInstructions: Set<number>;
 		onToggleSelection: (id: number) => void;
-		onEdit: (instruction: Instruction) => void;
-		onFormResult: (result: any) => void;
-		onCreateNew: () => void;
+		onEdit?: (instruction: Instruction) => void;
+		onFormResult?: (result: any) => void;
+		onCreateNew?: () => void;
+		enableReorder?: boolean;
+		showActions?: boolean;
+		showSelection?: boolean;
 	} = $props();
 
 	// State for drag and drop
@@ -148,9 +155,11 @@
 			});
 
 			const result = await response.json();
-			onFormResult({ type: 'success', data: result });
+			toastHelpers.itemUpdated('Orden de instrucciones');
+			onFormResult?.({ type: 'success', data: result });
 		} catch (error) {
-			onFormResult({ type: 'error', data: { error: 'Error al reordenar instrucciones' } });
+			toastHelpers.updateError('Orden de instrucciones', 'Error al reordenar instrucciones');
+			onFormResult?.({ type: 'error', data: { error: 'Error al reordenar instrucciones' } });
 		} finally {
 			isSubmitting = false;
 		}
@@ -173,16 +182,16 @@
 	<!-- Lista de instrucciones -->
 	<div
 		class="divide-y divide-gray-200"
-		ondragover={handleDragOver}
-		ondragleave={handleDragLeave}
-		ondrop={handleDrop}
+		ondragover={enableReorder ? handleDragOver : undefined}
+		ondragleave={enableReorder ? handleDragLeave : undefined}
+		ondrop={enableReorder ? handleDrop : undefined}
 		role="list"
 		aria-label="Lista de instrucciones de {formatCategoryName(category)}"
 	>
 		{#if reorderedInstructions.length > 0}
 			{#each reorderedInstructions as instruction, index (instruction.id)}
 				<!-- Insert line above if this is the insertion point -->
-				{#if insertIndex === index && draggedInstruction && draggedInstruction.id !== instruction.id}
+				{#if enableReorder && insertIndex === index && draggedInstruction && draggedInstruction.id !== instruction.id}
 					<div class="relative mx-4 h-0.5 bg-indigo-400/70"></div>
 				{/if}
 
@@ -194,25 +203,30 @@
 						{onToggleSelection}
 						{onEdit}
 						{onFormResult}
-						onDragStart={handleDragStart}
-						onDragEnd={handleDragEnd}
+						onDragStart={enableReorder ? handleDragStart : undefined}
+						onDragEnd={enableReorder ? handleDragEnd : undefined}
+						enableDrag={enableReorder}
+						{showActions}
+						{showSelection}
 					/>
 				</div>
 			{/each}
 
-			{#if insertIndex === reorderedInstructions.length && draggedInstruction}
+			{#if enableReorder && insertIndex === reorderedInstructions.length && draggedInstruction}
 				<div class="relative mx-4 h-0.5 bg-indigo-400/70"></div>
 			{/if}
 		{:else}
 			<div class="p-8 text-center text-gray-500">
 				<div class="mb-4 text-4xl">📝</div>
 				<p class="text-sm">No hay instrucciones en {formatCategoryName(category)}</p>
-				<button
-					onclick={onCreateNew}
-					class="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-				>
-					Crear la primera instrucción
-				</button>
+				{#if onCreateNew}
+					<button
+						onclick={onCreateNew}
+						class="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+					>
+						Crear la primera instrucción
+					</button>
+				{/if}
 			</div>
 		{/if}
 	</div>
