@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import FilePicker from '$lib/components/FilePicker.svelte';
+	import EmployeeSelect from '$lib/components/EmployeeSelect.svelte';
 	import { toastHelpers } from '$lib/utils/toast.js';
 
 	type Provider = {
@@ -15,9 +16,11 @@
 
 	let {
 		providers,
+		employees = [] as string[],
 		onCreated
 	}: {
 		providers: Provider[];
+		employees?: string[];
 		onCreated: () => void;
 	} = $props();
 
@@ -69,7 +72,12 @@
 					resetForm();
 					onCreated();
 				} else if (result.type === 'failure') {
-					toastHelpers.createError('Factura', typeof result.data?.message === 'string' ? result.data.message : 'Error al crear factura');
+					toastHelpers.createError(
+						'Factura',
+						typeof result.data?.message === 'string'
+							? result.data.message
+							: 'Error al crear factura'
+					);
 				}
 				isSubmitting = false;
 			};
@@ -110,14 +118,15 @@
 
 			<div>
 				<label for="uploaded_by" class="mb-1 block text-sm font-semibold">Subido por</label>
-				<input
-					type="text"
+				<EmployeeSelect
 					id="uploaded_by"
 					name="uploaded_by"
+					{employees}
 					bind:value={uploadedBy}
-					required
+					required={true}
 					class="w-full rounded border px-3 py-2"
-					placeholder="Nombre de la persona"
+					useDefaultStyles={false}
+					placeholder="Seleccionar empleado"
 				/>
 			</div>
 		</div>

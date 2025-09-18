@@ -3,22 +3,12 @@ import { ticket } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 import type { Actions, ServerLoad, RequestEvent } from '@sveltejs/kit';
+import { EMPLOYEES } from '../../_shared/employees';
 
 export const load: ServerLoad = async () => {
 	try {
 		const tickets = await db.select().from(ticket).orderBy(desc(ticket.created_at));
-		const employees = [
-			'Milton',
-			'Lore',
-			'Gemy',
-			'Anyi',
-			'Nani',
-			'Eri',
-			'Nati',
-			'Mari',
-			'Vik',
-			'Doc'
-		];
+		const employees = EMPLOYEES;
 		return { tickets, employees };
 	} catch (error) {
 		console.error('Error loading tickets:', error);

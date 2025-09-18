@@ -6,6 +6,7 @@ import path from 'path';
 import { writeFile } from 'fs/promises';
 import { emailService } from '$lib/server/email';
 import { fail } from '@sveltejs/kit';
+import { EMPLOYEES } from '../../_shared/employees';
 
 // Allowed file types for uploads
 const allowedMimeTypes = [
@@ -40,7 +41,10 @@ export async function load({ url }: { url: URL }) {
 	} else if (filterStatus === 'pending-payment') {
 		whereCondition = eq(invoice.payment_status, 'pending');
 	} else if (filterStatus === 'pending') {
-		whereCondition = or(eq(invoice.payment_status, 'pending'), eq(invoice.shipping_status, 'pending'));
+		whereCondition = or(
+			eq(invoice.payment_status, 'pending'),
+			eq(invoice.shipping_status, 'pending')
+		);
 	}
 	// For 'all', no where condition is applied
 
@@ -72,7 +76,10 @@ export async function load({ url }: { url: URL }) {
 
 	const providers = await db.select().from(provider);
 
-	return { invoices, providers, filterStatus };
+    // Employees list from shared module
+    const employees = EMPLOYEES;
+
+	return { invoices, providers, filterStatus, employees };
 }
 
 export const actions = {
@@ -120,7 +127,9 @@ export const actions = {
 
 			// Validate file type for invoice file
 			if (!allowedMimeTypes.includes(pdfFile.type)) {
-				return fail(400, { error: 'Tipo de archivo de factura no soportado. Solo PDF o imágenes.' });
+				return fail(400, {
+					error: 'Tipo de archivo de factura no soportado. Solo PDF o imágenes.'
+				});
 			}
 
 			// Generate unique filename with timestamp and correct extension
@@ -142,7 +151,9 @@ export const actions = {
 			let paymentReceiptPath: string | null = null;
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
 				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
-					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+					return fail(400, {
+						error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.'
+					});
 				}
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const receiptOriginalName = paymentReceiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -228,7 +239,9 @@ export const actions = {
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
 				// Validate file type for payment receipt if provided
 				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
-					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+					return fail(400, {
+						error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.'
+					});
 				}
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
@@ -380,7 +393,9 @@ export const actions = {
 				return fail(400, { error: 'Faltan campos requeridos.' });
 			}
 			if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
-				return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+				return fail(400, {
+					error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.'
+				});
 			}
 			const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 			const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
@@ -443,7 +458,9 @@ export const actions = {
 			if (paymentReceiptFile && paymentReceiptFile.size > 0) {
 				// Validate file type for payment receipt if provided
 				if (!allowedMimeTypes.includes(paymentReceiptFile.type)) {
-					return fail(400, { error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.' });
+					return fail(400, {
+						error: 'Tipo de archivo de comprobante no soportado. Solo PDF o imágenes.'
+					});
 				}
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));

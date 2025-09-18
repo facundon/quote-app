@@ -8,7 +8,9 @@
 		placeholder = 'Seleccionar empleado',
 		includeAll = false,
 		allLabel = 'Todos',
-		allValue = ''
+		allValue = '',
+		class: className = '',
+		useDefaultStyles = true
 	} = $props();
 
 	function handleChange(event: Event) {
@@ -21,7 +23,7 @@
 	{id}
 	{name}
 	bind:value
-	class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+	class={`${useDefaultStyles ? 'w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500' : ''} ${className}`}
 	{required}
 	onchange={handleChange}
 >

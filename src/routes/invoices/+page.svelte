@@ -35,6 +35,7 @@
 	let invoices = $derived(data.invoices);
 	let providers = $derived(data.providers);
 	let filterStatus = $derived(data.filterStatus);
+	let employees = $derived(data.employees);
 	let editInvoice = $state<Invoice | null>(null);
 
 	function startEdit(invoice: Invoice) {
@@ -64,6 +65,7 @@
 		{#if editInvoice}
 			<InvoiceEditForm
 				invoice={editInvoice}
+				{employees}
 				onEdited={() => {
 					fetchInvoices();
 					cancelEdit();
@@ -71,7 +73,7 @@
 				onCancel={cancelEdit}
 			/>
 		{:else}
-			<InvoiceCreateForm {providers} onCreated={fetchInvoices} />
+			<InvoiceCreateForm {providers} {employees} onCreated={fetchInvoices} />
 			<InvoiceList
 				{invoices}
 				{filterStatus}
