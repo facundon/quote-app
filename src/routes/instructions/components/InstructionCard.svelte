@@ -48,6 +48,7 @@
 	}
 
 	let didDrag = $state(false);
+	let isOpen = $state(false);
 
 	function handleRowClick(event: MouseEvent) {
 		if (didDrag) {
@@ -117,13 +118,38 @@
 		<!-- Contenido de la instrucción (solo título) -->
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center justify-between">
-				<div class="min-w-0 flex-1">
+				<div class="flex min-w-0 flex-1 items-center">
 					<button
-						class="block w-full truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-indigo-600"
+						class="block w-full text-left text-sm font-medium break-words whitespace-normal text-gray-900 transition-colors hover:text-indigo-600"
 						onclick={() => onToggleSelection(instruction.id)}
 					>
 						{instruction.title}
 					</button>
+
+					{#if instruction.description && instruction.description.trim().length}
+						<button
+							class="ml-2 flex-shrink-0 rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+							aria-label={isOpen ? 'Ocultar descripción' : 'Mostrar descripción'}
+							aria-expanded={isOpen}
+							onclick={(e) => {
+								e.stopPropagation();
+								isOpen = !isOpen;
+							}}
+						>
+							<svg
+								class={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								aria-hidden="true"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+									clip-rule="evenodd"
+								/>
+							</svg>
+						</button>
+					{/if}
 				</div>
 
 				<!-- Menú de acciones -->
@@ -190,4 +216,10 @@
 			</div>
 		</div>
 	</div>
+
+	{#if isOpen && instruction.description}
+		<div class="mt-2 pr-2 pl-8 text-sm break-words whitespace-pre-wrap text-gray-700">
+			{instruction.description}
+		</div>
+	{/if}
 </div>
