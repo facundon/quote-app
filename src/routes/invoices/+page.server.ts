@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { invoice, provider } from '$lib/server/db/schema';
-import { desc, eq, or } from 'drizzle-orm';
+import { and, asc, desc, eq, or } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { writeFile } from 'fs/promises';
@@ -32,21 +32,42 @@ function getExtensionFromMimeType(mimeType: string): string {
 
 export async function load({ url }: { url: URL }) {
 	const filterStatus = url.searchParams.get('filter') || 'pending';
+	const filterUser = url.searchParams.get('user') || '';
+	const filterProvider = url.searchParams.get('provider') || '';
+	const sortParam = url.searchParams.get('sort') || 'created';
+	const dirParam = (url.searchParams.get('dir') || 'desc').toLowerCase();
+	const sort = sortParam === 'payment' || sortParam === 'reception' ? sortParam : 'created';
+	const dir = dirParam === 'asc' ? 'asc' : 'desc';
 
-	let whereCondition = undefined;
+	let statusCondition = undefined;
 
 	// Apply filter based on payment status
 	if (filterStatus === 'paid') {
-		whereCondition = eq(invoice.payment_status, 'paid');
+		statusCondition = eq(invoice.payment_status, 'paid');
 	} else if (filterStatus === 'pending-payment') {
-		whereCondition = eq(invoice.payment_status, 'pending');
+		statusCondition = eq(invoice.payment_status, 'pending');
 	} else if (filterStatus === 'pending') {
-		whereCondition = or(
+		statusCondition = or(
 			eq(invoice.payment_status, 'pending'),
 			eq(invoice.shipping_status, 'pending')
 		);
 	}
-	// For 'all', no where condition is applied
+	// For 'all', no status condition is applied
+
+	// Optional user filter
+	const userCondition = filterUser ? eq(invoice.uploaded_by, filterUser) : undefined;
+	// Optional provider filter
+	const providerCondition = filterProvider
+		? eq(invoice.provider_id, Number(filterProvider))
+		: undefined;
+
+	// Combine conditions when present
+	let whereCondition = undefined as any;
+	if (statusCondition) whereCondition = statusCondition;
+	if (userCondition)
+		whereCondition = whereCondition ? and(whereCondition, userCondition) : userCondition;
+	if (providerCondition)
+		whereCondition = whereCondition ? and(whereCondition, providerCondition) : providerCondition;
 
 	const invoices = await db
 		.select({
@@ -72,14 +93,34 @@ export async function load({ url }: { url: URL }) {
 		.from(invoice)
 		.leftJoin(provider, eq(invoice.provider_id, provider.id))
 		.where(whereCondition)
-		.orderBy(desc(invoice.created_at));
+		.orderBy(
+			// Primary sort by selected date field with nulls last behavior emulation
+			// For simplicity, we sort by whether field is null (nulls last), then by the field
+			// and finally by created_at as a tiebreaker
+			...(sort === 'payment'
+				? [dir === 'asc' ? asc(invoice.payment_date) : desc(invoice.payment_date)]
+				: sort === 'reception'
+					? [dir === 'asc' ? asc(invoice.reception_date) : desc(invoice.reception_date)]
+					: [dir === 'asc' ? asc(invoice.created_at) : desc(invoice.created_at)]),
+			// Secondary tiebreaker to keep stable order
+			desc(invoice.created_at)
+		);
 
 	const providers = await db.select().from(provider);
 
-    // Employees list from shared module
-    const employees = EMPLOYEES;
+	// Employees list from shared module
+	const employees = EMPLOYEES;
 
-	return { invoices, providers, filterStatus, employees };
+	return {
+		invoices,
+		providers,
+		filterStatus,
+		filterUser,
+		filterProvider,
+		employees,
+		sort,
+		dir
+	};
 }
 
 export const actions = {

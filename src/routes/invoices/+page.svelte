@@ -1,5 +1,6 @@
 <script lang="ts">
-	import InvoiceCreateForm from './components/InvoiceCreateForm.svelte';
+	import ActionButton from '$lib/components/ActionButton.svelte';
+	import InvoiceCreateModal from './components/InvoiceCreateModal.svelte';
 	import InvoiceEditForm from './components/InvoiceEditForm.svelte';
 	import InvoiceList from './components/InvoiceList.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -35,8 +36,13 @@
 	let invoices = $derived(data.invoices);
 	let providers = $derived(data.providers);
 	let filterStatus = $derived(data.filterStatus);
+	let filterUser = $derived(data.filterUser);
+	let filterProvider = $derived(data.filterProvider);
 	let employees = $derived(data.employees);
+	let sort = $derived(data.sort as 'created' | 'payment' | 'reception');
+	let dir = $derived(data.dir as 'asc' | 'desc');
 	let editInvoice = $state<Invoice | null>(null);
+	let showCreateModal = $state(false);
 
 	function startEdit(invoice: Invoice) {
 		editInvoice = invoice;
@@ -58,9 +64,15 @@
 	}
 </script>
 
-<div class="mx-auto max-w-6xl">
+<div class="max-w-8xl mx-auto">
 	<div class="rounded-xl bg-white p-8 shadow-lg">
-		<h1 class="mb-6 text-3xl font-extrabold text-blue-900">Gestión de Facturas</h1>
+		<div class="mb-6 flex items-center justify-between">
+			<h1 class="text-3xl font-extrabold text-blue-900">Gestión de Facturas</h1>
+			<ActionButton variant="primary" onclick={() => (showCreateModal = true)}>
+				<span class="mr-2">➕</span>
+				Nueva Factura
+			</ActionButton>
+		</div>
 
 		{#if editInvoice}
 			<InvoiceEditForm
@@ -73,10 +85,15 @@
 				onCancel={cancelEdit}
 			/>
 		{:else}
-			<InvoiceCreateForm {providers} {employees} onCreated={fetchInvoices} />
 			<InvoiceList
 				{invoices}
 				{filterStatus}
+				{filterUser}
+				{employees}
+				{providers}
+				{filterProvider}
+				{sort}
+				{dir}
 				onEdit={startEdit}
 				onDeleted={fetchInvoices}
 				onUpdated={fetchInvoices}
@@ -84,3 +101,13 @@
 		{/if}
 	</div>
 </div>
+
+{#if showCreateModal}
+	<InvoiceCreateModal
+		bind:show={showCreateModal}
+		onClose={() => (showCreateModal = false)}
+		{providers}
+		{employees}
+		onSuccess={fetchInvoices}
+	/>
+{/if}

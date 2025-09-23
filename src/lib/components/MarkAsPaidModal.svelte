@@ -58,7 +58,12 @@
 					onSuccess();
 					onClose();
 				} else if (result.type === 'failure') {
-					toastHelpers.updateError('Pago', typeof result.data?.message === 'string' ? result.data.message : 'Error al marcar como pagado');
+					toastHelpers.updateError(
+						'Pago',
+						typeof result.data?.message === 'string'
+							? result.data.message
+							: 'Error al marcar como pagado'
+					);
 				}
 				isUploading = false;
 			};
@@ -75,7 +80,7 @@
 
 		<div>
 			<label for="receipt_file" class="mb-1 block text-sm font-semibold"
-				>Comprobante de Pago (PDF) - Opcional</label
+				>Comprobante de Pago - Opcional</label
 			>
 			<FilePicker
 				id="receipt_file"

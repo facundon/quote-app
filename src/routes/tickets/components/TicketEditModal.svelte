@@ -68,7 +68,7 @@
 					required={true}
 					{employees}
 					value={ticket.assignee || ''}
-					placeholder="Seleccionar personal"
+					placeholder="Seleccionar usuario"
 				/>
 			</div>
 

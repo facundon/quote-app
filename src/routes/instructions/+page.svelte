@@ -163,7 +163,7 @@
 		{/if}
 
 		<!-- Layout de 2 columnas -->
-		<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+		<div class="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
 			{#each defaultCategories as category}
 				<InstructionColumn
 					{category}
@@ -173,6 +173,7 @@
 					enableReorder={false}
 					showActions={false}
 					showSelection={true}
+					showSearch={category === 'obras_sociales'}
 				/>
 			{/each}
 		</div>

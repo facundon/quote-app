@@ -5,17 +5,19 @@
 		id = name,
 		value = $bindable(''),
 		required = false,
-		placeholder = 'Seleccionar personal',
+		placeholder = 'Seleccionar usuario',
 		includeAll = false,
 		allLabel = 'Todos',
 		allValue = '',
 		class: className = '',
-		useDefaultStyles = true
+		useDefaultStyles = true,
+		onchange = undefined as ((event: Event) => void) | undefined
 	} = $props();
 
 	function handleChange(event: Event) {
 		const select = event.target as HTMLSelectElement;
 		value = select.value;
+		if (onchange) onchange(event);
 	}
 </script>
 

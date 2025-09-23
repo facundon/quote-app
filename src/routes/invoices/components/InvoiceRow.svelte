@@ -34,7 +34,8 @@
 		openReceiptModal,
 		onEmailSent,
 		onEmailLoading,
-		onEmailLoadingEnd
+		onEmailLoadingEnd,
+		sort = 'created' as 'created' | 'payment' | 'reception'
 	}: {
 		invoice: Invoice;
 		sendingEmail: number | null;
@@ -45,6 +46,7 @@
 		onEmailSent: (message: { type: 'success' | 'error'; text: string }) => void;
 		onEmailLoading: (invoiceId: number) => void;
 		onEmailLoadingEnd: () => void;
+		sort?: 'created' | 'payment' | 'reception';
 	} = $props();
 
 	let showEmailModal = $state(false);
@@ -331,25 +333,25 @@
 	</td>
 	<td class="px-6 py-4 whitespace-nowrap">
 		<div class="space-y-1 text-xs text-gray-600">
-			<div>
+			<div class={sort === 'created' ? 'font-semibold text-gray-900' : ''}>
 				<span class="font-medium">Creado:</span>
 				{formatDate(invoice.created_at)}
 			</div>
-			<div>
+			<div class={sort === 'payment' ? 'font-semibold text-gray-900' : ''}>
 				<span class="font-medium">Pago:</span>
 				{formatDate(invoice.payment_date)}
 			</div>
-			<div>
+			<div class={sort === 'reception' ? 'font-semibold text-gray-900' : ''}>
 				<span class="font-medium">Recepción:</span>
 				{formatDate(invoice.reception_date)}
 			</div>
 		</div>
 	</td>
-	<td class="px-6 py-4 whitespace-nowrap">
+	<td class="w-28 px-6 py-4 whitespace-nowrap">
 		<div class="text-sm text-gray-900">{invoice.uploaded_by}</div>
 	</td>
-	<td class="px-6 py-4">
-		<div class="max-w-xs text-sm text-gray-900">
+	<td class="w-1/3 px-6 py-4">
+		<div class="text-sm text-gray-900">
 			{#if invoice.notes}
 				<div class="truncate" title={invoice.notes}>
 					{invoice.notes}

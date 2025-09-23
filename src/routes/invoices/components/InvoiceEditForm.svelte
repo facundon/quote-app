@@ -147,7 +147,7 @@
 					required={true}
 					class="w-full rounded border px-3 py-2"
 					useDefaultStyles={false}
-					placeholder="Seleccionar personal"
+					placeholder="Seleccionar usuario"
 				/>
 			</div>
 		</div>
@@ -205,7 +205,7 @@
 
 				<div class="md:col-span-2">
 					<label for="payment_receipt" class="mb-1 block text-sm font-semibold"
-						>Comprobante de Pago (PDF)</label
+						>Comprobante de Pago</label
 					>
 					{#if paymentStatus === 'paid'}
 						<FilePicker

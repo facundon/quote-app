@@ -14,7 +14,8 @@
 		onCreateNew,
 		enableReorder = true,
 		showActions = true,
-		showSelection = true
+		showSelection = true,
+		showSearch = false
 	}: {
 		category: string;
 		instructions: Instruction[];
@@ -26,6 +27,7 @@
 		enableReorder?: boolean;
 		showActions?: boolean;
 		showSelection?: boolean;
+		showSearch?: boolean;
 	} = $props();
 
 	// State for drag and drop
@@ -34,6 +36,17 @@
 	let reorderedInstructions = $state([...instructions]);
 	let isSubmitting = $state(false);
 	let insertIndex = $state(-1);
+
+	// Local search (only used when showSearch is true on 'obras_sociales')
+	let titleSearch = $state('');
+	let displayedInstructions = $derived(() => {
+		const base = [...reorderedInstructions];
+		if (showSearch && category === 'obras_sociales' && titleSearch.trim()) {
+			const q = titleSearch.toLowerCase();
+			return base.filter((i) => i.title.toLowerCase().includes(q));
+		}
+		return base;
+	});
 
 	// Selection controls are rendered globally above the grid
 
@@ -169,14 +182,35 @@
 <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
 	<!-- Header de categoría -->
 	<div class="border-b border-gray-200 px-6 py-4">
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-4">
 			<h2 class="text-lg font-semibold text-gray-900">
 				{formatCategoryName(category)}
 				<span class="ml-2 text-sm font-normal text-gray-500">
-					({reorderedInstructions.length})
+					({displayedInstructions().length})
 				</span>
 			</h2>
 		</div>
+		{#if showSearch && category === 'obras_sociales'}
+			<div class="relative mt-3">
+				<input
+					class="w-full rounded-md border border-gray-300 px-3 py-1.5 pr-9 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+					type="text"
+					placeholder="Buscar por título..."
+					value={titleSearch}
+					oninput={(e) => (titleSearch = (e.target as HTMLInputElement).value)}
+				/>
+				{#if titleSearch}
+					<button
+						type="button"
+						class="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-gray-500 hover:text-gray-700"
+						aria-label="Limpiar búsqueda"
+						onclick={() => (titleSearch = '')}
+					>
+						×
+					</button>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Lista de instrucciones -->
@@ -188,8 +222,8 @@
 		role="list"
 		aria-label="Lista de instrucciones de {formatCategoryName(category)}"
 	>
-		{#if reorderedInstructions.length > 0}
-			{#each reorderedInstructions as instruction, index (instruction.id)}
+		{#if displayedInstructions().length > 0}
+			{#each displayedInstructions() as instruction, index (instruction.id)}
 				<!-- Insert line above if this is the insertion point -->
 				{#if enableReorder && insertIndex === index && draggedInstruction && draggedInstruction.id !== instruction.id}
 					<div class="relative mx-4 h-0.5 bg-indigo-400/70"></div>

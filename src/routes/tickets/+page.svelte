@@ -6,7 +6,6 @@
 	import type { Ticket } from '$lib/server/db/schema';
 
 	import HeaderBar from './components/HeaderBar.svelte';
-	import StatsBar from './components/StatsBar.svelte';
 	import FiltersBar from './components/FiltersBar.svelte';
 	import TicketsGrid from './components/TicketsGrid.svelte';
 	import ActionButton from '$lib/components/ActionButton.svelte';
@@ -15,15 +14,7 @@
 	import TicketCreateModal from './components/TicketCreateModal.svelte';
 	import TicketEditModal from './components/TicketEditModal.svelte';
 	import { updateTicketStatus, cycleStatus, deleteTicketById } from './services';
-	import {
-		getAssigneeStyle,
-		getPrioridadInfo,
-		getStatusInfo,
-		formatDate,
-		getTimeAgo,
-		statusOptions,
-		prioridadOptions
-	} from './utils';
+	import { getStatusInfo, statusOptions, prioridadOptions } from './utils';
 
 	interface PageData {
 		tickets: Ticket[];
@@ -127,16 +118,6 @@
 	);
 	let resolvedTickets = $derived(() => filteredTickets().filter((t) => t.status === 'resolved'));
 
-	// Estadísticas
-	let ticketStats = $derived(() => {
-		const total = data.tickets.length;
-		const open = data.tickets.filter((t) => t.status === 'open').length;
-		const inProgress = data.tickets.filter((t) => t.status === 'in_progress').length;
-		const resolved = data.tickets.filter((t) => t.status === 'resolved').length;
-
-		return { total, open, inProgress, resolved };
-	});
-
 	function openCreateModal() {
 		showCreateModal = true;
 	}
@@ -154,12 +135,6 @@
 		showEditModal = false;
 		editingTicket = null;
 	}
-
-	// Drag & Drop (grid: pendientes <-> en progreso)
-	let draggedTicketId = $state<number | null>(null);
-	let draggedFromStatus = $state<'open' | 'in_progress' | 'resolved' | null>(null);
-	let openDropActive = $state(false);
-	let inProgressDropActive = $state(false);
 
 	// DnD moved into TicketsGrid component
 
@@ -273,7 +248,6 @@
 		<!-- Header -->
 		<div class="mb-8">
 			<HeaderBar bind:selectedView onCreate={openCreateModal} />
-			<StatsBar stats={ticketStats()} />
 		</div>
 
 		<!-- Filtros y búsqueda -->

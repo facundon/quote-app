@@ -33,8 +33,10 @@
 		action="?/instruction_create"
 		use:enhance={() => {
 			onSubmitStart?.();
-			return async ({ result }) => {
+			return async ({ result, formElement }) => {
 				if (result.type === 'success') {
+					// Reset form fields on success
+					formElement?.reset();
 					toastHelpers.itemCreated('Instrucción');
 				} else if (result.type === 'failure') {
 					toastHelpers.createError(

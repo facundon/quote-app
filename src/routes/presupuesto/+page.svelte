@@ -164,6 +164,11 @@
 			{handleInputChange}
 			{selectAll}
 		/>
+		<div class="flex justify-end">
+			<span class="text-large inline-flex items-center bg-white px-3 py-1">
+				Total: {formatInt(totalQuantity)} estudios
+			</span>
+		</div>
 		<QuoteSummary
 			{data}
 			{categoryQuantities}
@@ -173,7 +178,7 @@
 			{showSummary}
 			toggleSummary={() => (showSummary = !showSummary)}
 		/>
-		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity}	 />
+		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity} />
 		<div class="mt-6 flex justify-end">
 			<ResetButton onReset={resetBudget} variant="danger" />
 		</div>

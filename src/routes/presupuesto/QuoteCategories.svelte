@@ -23,7 +23,7 @@
 	} = $props();
 </script>
 
-<div class="mt-2 mb-8 rounded-xl bg-blue-50/60 p-4">
+<div class="mt-2 mb-4 rounded-xl bg-blue-50/60 p-4">
 	<h3 class="mb-6 border-b-4 border-blue-400 pb-2 text-2xl font-extrabold text-blue-900">
 		Categorías
 	</h3>
