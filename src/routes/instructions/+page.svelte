@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import Toast from '$lib/components/Toast.svelte';
+	import ActionButton from '$lib/components/ActionButton.svelte';
 	import SelectionControls from './components/SelectionControls.svelte';
 	import InstructionColumn from './components/InstructionColumn.svelte';
 	import type { Instruction } from '$lib/server/db/schema';
+	import {
+		buildAvailableCategories,
+		DEFAULT_COLUMN_CATEGORIES,
+		formatInstructionCategoryName
+	} from './categories';
 
 	interface PageData {
 		instructions: Instruction[];
@@ -24,17 +30,39 @@
 	let toastType = $state<'success' | 'error'>('success');
 	let showToast = $state(false);
 
-	// Categorías por defecto para las dos columnas
-	const defaultCategories = ['estudios', 'obras_sociales'];
+	const COLUMN_INDEXES = [0, 1] as const;
+	let columnCategories = $state<string[]>([...DEFAULT_COLUMN_CATEGORIES]);
+	let availableCategories = $derived(buildAvailableCategories(data.categories));
+
+	function optionsForColumn(index: 0 | 1): string[] {
+		const otherIndex = index === 0 ? 1 : 0;
+		const current = columnCategories[index] || DEFAULT_COLUMN_CATEGORIES[index];
+		const other = columnCategories[otherIndex] || DEFAULT_COLUMN_CATEGORIES[otherIndex];
+		return availableCategories.filter((c) => c === current || c !== other);
+	}
+
+	function setColumnCategory(index: number, next: string) {
+		const otherIndex = index === 0 ? 1 : 0;
+		const nextCategories = columnCategories.map((c, i) => (i === index ? next : c));
+
+		// Keep columns unique: picking a category on one side filters it out on the other.
+		if (nextCategories[otherIndex] === next) {
+			nextCategories[otherIndex] = availableCategories.find((c) => c !== next) ?? next;
+		}
+
+		columnCategories = nextCategories;
+	}
+
+	function resetColumnsToDefault() {
+		columnCategories = [...DEFAULT_COLUMN_CATEGORIES];
+	}
 
 	// Agrupar instrucciones por categoría
 	let instructionsByCategory = $derived(() => {
 		const grouped: Record<string, Instruction[]> = {};
 
-		// Inicializar con categorías por defecto
-		defaultCategories.forEach((cat) => {
-			grouped[cat] = [];
-		});
+		// Inicializar con categorías disponibles (incluye vacías)
+		for (const cat of availableCategories) grouped[cat] = [];
 
 		// Agrupar instrucciones
 		data.instructions.forEach((instruction) => {
@@ -162,9 +190,39 @@
 			/>
 		{/if}
 
+		<!-- Controles de columnas -->
+		<div class="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<div class="flex flex-wrap items-center gap-4">
+					{#each COLUMN_INDEXES as columnIndex (columnIndex)}
+						{@const current =
+							columnCategories[columnIndex] || DEFAULT_COLUMN_CATEGORIES[columnIndex]}
+						<label class="flex items-center gap-2 text-sm text-gray-700">
+							<span class="font-medium">Columna {columnIndex + 1}</span>
+							<select
+								class="w-44 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+								value={current}
+								onchange={(e) =>
+									setColumnCategory(columnIndex, (e.currentTarget as HTMLSelectElement).value)}
+							>
+								{#each optionsForColumn(columnIndex) as opt (opt)}
+									<option value={opt}>{formatInstructionCategoryName(opt)}</option>
+								{/each}
+							</select>
+						</label>
+					{/each}
+				</div>
+
+				<ActionButton variant="secondary" onclick={resetColumnsToDefault}>
+					Restablecer por defecto
+				</ActionButton>
+			</div>
+		</div>
+
 		<!-- Layout de 2 columnas -->
 		<div class="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
-			{#each defaultCategories as category}
+			{#each COLUMN_INDEXES as columnIndex (columnIndex)}
+				{@const category = columnCategories[columnIndex] || DEFAULT_COLUMN_CATEGORIES[columnIndex]}
 				<InstructionColumn
 					{category}
 					instructions={instructionsByCategory()[category] || []}

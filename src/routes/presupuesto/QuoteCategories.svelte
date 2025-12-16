@@ -33,7 +33,7 @@
 			{@const unitDiscount = d && d.applied ? d.amount / (categoryQuantities[cat.id] || 1) : 0}
 			{@const unitFinal = cat.unit_price - unitDiscount}
 			<li class="flex items-center gap-2 py-2">
-				<span class="flex-1 font-medium">{cat.name}</span>
+				<span class="flex-1 font-medium text-slate-700">{cat.name}</span>
 				{#if d && d.applied && unitDiscount > 0}
 					<span class="text-xs text-red-400 line-through">${cat.unit_price.toFixed(2)}</span>
 					<span class="ml-1 text-xs font-bold text-green-700">${unitFinal.toFixed(2)} c/u</span>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { fly } from 'svelte/transition';
+	import type { ActionResult } from '@sveltejs/kit';
 	import type { Instruction } from '$lib/server/db/schema';
 	import { toastHelpers } from '$lib/utils/toast.js';
 
@@ -21,7 +22,7 @@
 		isSelected: boolean;
 		onToggleSelection: (id: number) => void;
 		onEdit?: (instruction: Instruction) => void;
-		onFormResult?: (result: any) => void;
+		onFormResult?: (result: ActionResult) => void;
 		onDragStart?: (instruction: Instruction) => void;
 		onDragEnd?: () => void;
 		isDragging?: boolean;

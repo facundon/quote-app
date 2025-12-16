@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import InstructionCard from './InstructionCard.svelte';
 	import type { Instruction } from '$lib/server/db/schema';
 	import { toastHelpers } from '$lib/utils/toast.js';
+	import type { ActionResult } from '@sveltejs/kit';
+	import { formatInstructionCategoryName } from '../categories';
 
 	let {
 		category,
@@ -22,7 +23,7 @@
 		selectedInstructions: Set<number>;
 		onToggleSelection: (id: number) => void;
 		onEdit?: (instruction: Instruction) => void;
-		onFormResult?: (result: any) => void;
+		onFormResult?: (result: ActionResult) => void;
 		onCreateNew?: () => void;
 		enableReorder?: boolean;
 		showActions?: boolean;
@@ -41,7 +42,7 @@
 	let titleSearch = $state('');
 	let displayedInstructions = $derived(() => {
 		const base = [...reorderedInstructions];
-		if (showSearch && category === 'obras_sociales' && titleSearch.trim()) {
+		if (showSearch && titleSearch.trim()) {
 			const q = titleSearch.toLowerCase();
 			return base.filter((i) => i.title.toLowerCase().includes(q));
 		}
@@ -55,14 +56,14 @@
 		reorderedInstructions = [...instructions];
 	});
 
-	// Función para formatear nombres de categorías
-	function formatCategoryName(str: string) {
-		const categoryNames: Record<string, string> = {
-			estudios: 'Estudios',
-			obras_sociales: 'Obras Sociales'
-		};
-		return categoryNames[str] || str.charAt(0).toUpperCase() + str.slice(1);
-	}
+	// Clear local search when changing category (avoid stale queries)
+	let lastCategory = $state(category);
+	$effect(() => {
+		if (category !== lastCategory) {
+			titleSearch = '';
+			lastCategory = category;
+		}
+	});
 
 	function handleDragStart(instruction: Instruction) {
 		draggedInstruction = instruction;
@@ -169,10 +170,8 @@
 
 			const result = await response.json();
 			toastHelpers.itemUpdated('Orden de instrucciones');
-			onFormResult?.({ type: 'success', data: result });
 		} catch (error) {
 			toastHelpers.updateError('Orden de instrucciones', 'Error al reordenar instrucciones');
-			onFormResult?.({ type: 'error', data: { error: 'Error al reordenar instrucciones' } });
 		} finally {
 			isSubmitting = false;
 		}
@@ -184,13 +183,13 @@
 	<div class="border-b border-gray-200 px-6 py-4">
 		<div class="flex items-center justify-between gap-4">
 			<h2 class="text-lg font-semibold text-gray-900">
-				{formatCategoryName(category)}
+				{formatInstructionCategoryName(category)}
 				<span class="ml-2 text-sm font-normal text-gray-500">
 					({displayedInstructions().length})
 				</span>
 			</h2>
 		</div>
-		{#if showSearch && category === 'obras_sociales'}
+		{#if showSearch}
 			<div class="relative mt-3">
 				<input
 					class="w-full rounded-md border border-gray-300 px-3 py-1.5 pr-9 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -220,7 +219,7 @@
 		ondragleave={enableReorder ? handleDragLeave : undefined}
 		ondrop={enableReorder ? handleDrop : undefined}
 		role="list"
-		aria-label="Lista de instrucciones de {formatCategoryName(category)}"
+		aria-label="Lista de instrucciones de {formatInstructionCategoryName(category)}"
 	>
 		{#if displayedInstructions().length > 0}
 			{#each displayedInstructions() as instruction, index (instruction.id)}
@@ -252,7 +251,7 @@
 		{:else}
 			<div class="p-8 text-center text-gray-500">
 				<div class="mb-4 text-4xl">📝</div>
-				<p class="text-sm">No hay instrucciones en {formatCategoryName(category)}</p>
+				<p class="text-sm">No hay instrucciones en {formatInstructionCategoryName(category)}</p>
 				{#if onCreateNew}
 					<button
 						onclick={onCreateNew}

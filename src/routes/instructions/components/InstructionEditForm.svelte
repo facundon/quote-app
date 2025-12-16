@@ -3,6 +3,8 @@
 	import ActionButton from '$lib/components/ActionButton.svelte';
 	import type { Instruction } from '$lib/server/db/schema';
 	import { toastHelpers } from '$lib/utils/toast.js';
+	import type { ActionResult } from '@sveltejs/kit';
+	import { formatInstructionCategoryName } from '../categories';
 
 	let {
 		instruction,
@@ -14,20 +16,11 @@
 	}: {
 		instruction: Instruction;
 		isSubmitting: boolean;
-		defaultCategories: string[];
+		defaultCategories: readonly string[];
 		onCancel: () => void;
-		onFormResult: (result: any) => void;
+		onFormResult: (result: ActionResult) => void;
 		onSubmitStart?: () => void;
 	} = $props();
-
-	// Función para formatear nombres de categorías
-	function formatCategoryName(str: string) {
-		const categoryNames: Record<string, string> = {
-			estudios: 'Estudios',
-			obras_sociales: 'Obras Sociales'
-		};
-		return categoryNames[str] || str.charAt(0).toUpperCase() + str.slice(1);
-	}
 </script>
 
 <div class="mb-4 rounded border border-blue-200 bg-blue-50 p-4 shadow">
@@ -78,7 +71,7 @@
 			>
 				{#each defaultCategories as category}
 					<option value={category} selected={category === instruction.category}>
-						{formatCategoryName(category)}
+						{formatInstructionCategoryName(category)}
 					</option>
 				{/each}
 			</select>
