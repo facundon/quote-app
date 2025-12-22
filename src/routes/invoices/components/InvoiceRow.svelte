@@ -8,6 +8,7 @@
 		id: number;
 		pdf_path: string;
 		payment_receipt_path: string | null;
+		receipt_email_sent_at: string | null;
 		value: number;
 		payment_status: string;
 		shipping_status: string;
@@ -115,6 +116,12 @@
 
 	function closeEmailModal() {
 		showEmailModal = false;
+	}
+
+	function formatEmailSentTooltip(date: string | null): string {
+		if (!date) return 'Comprobante enviado por email';
+		const formatted = new Date(date).toLocaleString('es-AR');
+		return `Comprobante enviado por email: ${formatted}`;
 	}
 
 	async function sendEmail() {
@@ -318,11 +325,35 @@
 		<div class="text-sm text-gray-900">{invoice.provider_name || 'N/A'}</div>
 	</td>
 	<td class="px-6 py-4 whitespace-nowrap">
-		<span
-			class="inline-flex rounded-full px-2 py-1 text-xs font-semibold {getStatusColor(
-				invoice.payment_status
-			)}">{getStatusLabel(invoice.payment_status)}</span
-		>
+		<div class="flex items-center gap-2">
+			<span
+				class="inline-flex rounded-full px-2 py-1 text-xs font-semibold {getStatusColor(
+					invoice.payment_status
+				)}">{getStatusLabel(invoice.payment_status)}</span
+			>
+
+			{#if invoice.receipt_email_sent_at}
+				<span
+					class="inline-flex items-center justify-center rounded-full bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-800"
+					title={formatEmailSentTooltip(invoice.receipt_email_sent_at)}
+					aria-label={formatEmailSentTooltip(invoice.receipt_email_sent_at)}
+				>
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M4 6h16v12H4z" />
+						<path d="M4 7l8 6 8-6" />
+					</svg>
+				</span>
+			{/if}
+		</div>
 	</td>
 	<td class="px-6 py-4 whitespace-nowrap">
 		<span

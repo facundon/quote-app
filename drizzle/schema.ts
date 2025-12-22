@@ -45,6 +45,7 @@ export const invoice = sqliteTable('invoice', {
 	id: integer().primaryKey().notNull(),
 	pdfPath: text('pdf_path').notNull(),
 	paymentReceiptPath: text('payment_receipt_path'),
+	receiptEmailSentAt: text('receipt_email_sent_at'),
 	value: real().notNull(),
 	paymentStatus: text('payment_status').notNull(),
 	shippingStatus: text('shipping_status').notNull(),

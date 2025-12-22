@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, isHttpError } from '@sveltejs/kit';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,8 +24,8 @@ function getMimeType(filePath: string): string {
 export async function GET({ params }) {
 	// Handle path parameter - it might be an array or string
 	const pathSegments = Array.isArray(params.path) ? params.path : [params.path];
-	const relativePath = pathSegments.join('/');
-	const filePath = path.join(process.cwd(), 'facturas', relativePath);
+	const relativePath = pathSegments.join('/').replaceAll('\\', '/');
+	const filePath = path.join(process.cwd(), 'facturas', ...relativePath.split('/'));
 
 	try {
 		// Check if file exists and is within the facturas directory
@@ -54,6 +54,9 @@ export async function GET({ params }) {
 			}
 		});
 	} catch (err) {
+		// Don't mask expected 4xx errors as 500s
+		if (isHttpError(err)) throw err;
+
 		console.error('Error serving file:', err);
 		console.error('Requested path:', relativePath);
 		console.error('Full file path:', filePath);

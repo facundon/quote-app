@@ -30,6 +30,25 @@ function getExtensionFromMimeType(mimeType: string): string {
 	return map[mimeType] || '';
 }
 
+function toUrlPath(inputPath: string): string {
+	return inputPath.replaceAll('\\', '/');
+}
+
+function urlPathJoin(...parts: string[]): string {
+	return path.posix.join(...parts.map(toUrlPath));
+}
+
+function urlPathToFsPath(urlPath: string): string {
+	const normalized = toUrlPath(urlPath);
+	return path.join(process.cwd(), ...normalized.split('/'));
+}
+
+function ensureDirExists(dirPath: string): void {
+	if (!fs.existsSync(dirPath)) {
+		fs.mkdirSync(dirPath, { recursive: true });
+	}
+}
+
 export async function load({ url }: { url: URL }) {
 	const filterStatus = url.searchParams.get('filter') || 'pending';
 	const filterUser = url.searchParams.get('user') || '';
@@ -74,6 +93,7 @@ export async function load({ url }: { url: URL }) {
 			id: invoice.id,
 			pdf_path: invoice.pdf_path,
 			payment_receipt_path: invoice.payment_receipt_path,
+			receipt_email_sent_at: invoice.receipt_email_sent_at,
 			value: invoice.value,
 			payment_status: invoice.payment_status,
 			shipping_status: invoice.shipping_status,
@@ -186,7 +206,7 @@ export const actions = {
 			await writeFile(filePath, buffer);
 
 			// Store relative path in database
-			const relativePath = path.join('facturas', sanitizedProviderName, fileName);
+			const relativePath = urlPathJoin('facturas', sanitizedProviderName, fileName);
 
 			// Handle payment receipt file if provided
 			let paymentReceiptPath: string | null = null;
@@ -207,7 +227,7 @@ export const actions = {
 				await writeFile(receiptFilePath, receiptBuffer);
 
 				// Store relative path in database
-				paymentReceiptPath = path.join('facturas', sanitizedProviderName, receiptFileName);
+				paymentReceiptPath = urlPathJoin('facturas', sanitizedProviderName, receiptFileName);
 			}
 
 			await db.insert(invoice).values({
@@ -262,13 +282,14 @@ export const actions = {
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
+			const currentPdfPathUrl = toUrlPath(currentPdfPath);
 			const currentPaymentStatus = currentInvoice[0].payment_status;
 			const currentReceiptPath = currentInvoice[0].payment_receipt_path;
-			let paymentReceiptPath: string | null = null;
+			let paymentReceiptPath: string | null | undefined = undefined;
 
 			// If changing from paid to pending, delete the receipt file
 			if (currentPaymentStatus === 'paid' && payment_status === 'pending' && currentReceiptPath) {
-				const fullReceiptPath = path.join(process.cwd(), currentReceiptPath);
+				const fullReceiptPath = urlPathToFsPath(currentReceiptPath);
 				if (fs.existsSync(fullReceiptPath)) {
 					fs.unlinkSync(fullReceiptPath);
 					console.log(`Payment receipt file deleted: ${fullReceiptPath}`);
@@ -285,8 +306,9 @@ export const actions = {
 					});
 				}
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
-				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
-				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+				const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
+				ensureDirExists(pdfDir);
+				const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
 				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 
@@ -296,7 +318,7 @@ export const actions = {
 				await writeFile(receiptFilePath, receiptBuffer);
 
 				// Store relative path in database
-				paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+				paymentReceiptPath = urlPathJoin(path.posix.dirname(currentPdfPathUrl), receiptFileName);
 			}
 
 			await db
@@ -309,7 +331,10 @@ export const actions = {
 					payment_date: payment_date ? String(payment_date) : null,
 					reception_date: reception_date ? String(reception_date) : null,
 					notes: notes ? String(notes) : null,
-					...(paymentReceiptPath !== undefined && { payment_receipt_path: paymentReceiptPath })
+					...(paymentReceiptPath !== undefined && {
+						payment_receipt_path: paymentReceiptPath,
+						receipt_email_sent_at: null
+					})
 				})
 				.where(eq(invoice.id, Number(id)));
 
@@ -351,7 +376,7 @@ export const actions = {
 
 			// Delete the PDF file if it exists
 			if (pdfPath) {
-				const fullPdfPath = path.join(process.cwd(), pdfPath);
+				const fullPdfPath = urlPathToFsPath(pdfPath);
 				if (fs.existsSync(fullPdfPath)) {
 					fs.unlinkSync(fullPdfPath);
 					console.log(`PDF file deleted: ${fullPdfPath}`);
@@ -360,7 +385,7 @@ export const actions = {
 
 			// Delete the payment receipt file if it exists
 			if (paymentReceiptPath && paymentReceiptPath.length > 0) {
-				const fullReceiptPath = path.join(process.cwd(), paymentReceiptPath);
+				const fullReceiptPath = urlPathToFsPath(paymentReceiptPath);
 				if (fs.existsSync(fullReceiptPath)) {
 					fs.unlinkSync(fullReceiptPath);
 					console.log(`Payment receipt file deleted: ${fullReceiptPath}`);
@@ -428,6 +453,7 @@ export const actions = {
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
+			const currentPdfPathUrl = toUrlPath(currentPdfPath);
 
 			// Validate file type for payment receipt if provided
 			if (!paymentReceiptFile || paymentReceiptFile.size === 0) {
@@ -439,8 +465,9 @@ export const actions = {
 				});
 			}
 			const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
-			const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
-			const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+			const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
+			ensureDirExists(pdfDir);
+			const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
 			const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 			const receiptFilePath = path.join(pdfDir, receiptFileName);
 
@@ -450,12 +477,13 @@ export const actions = {
 			await writeFile(receiptFilePath, receiptBuffer);
 
 			// Store relative path in database
-			const paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+			const paymentReceiptPath = urlPathJoin(path.posix.dirname(currentPdfPathUrl), receiptFileName);
 
 			await db
 				.update(invoice)
 				.set({
-					payment_receipt_path: paymentReceiptPath
+					payment_receipt_path: paymentReceiptPath,
+					receipt_email_sent_at: null
 				})
 				.where(eq(invoice.id, Number(id)));
 
@@ -493,6 +521,7 @@ export const actions = {
 			}
 
 			const currentPdfPath = currentInvoice[0].pdf_path;
+			const currentPdfPathUrl = toUrlPath(currentPdfPath);
 			let paymentReceiptPath: string | null = null;
 
 			// Handle payment receipt file if provided
@@ -504,8 +533,9 @@ export const actions = {
 					});
 				}
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
-				const pdfDir = path.dirname(path.join(process.cwd(), currentPdfPath));
-				const pdfFileName = path.basename(currentPdfPath, path.extname(currentPdfPath));
+				const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
+				ensureDirExists(pdfDir);
+				const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
 				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 
@@ -515,7 +545,7 @@ export const actions = {
 				await writeFile(receiptFilePath, receiptBuffer);
 
 				// Store relative path in database
-				paymentReceiptPath = path.join(path.dirname(currentPdfPath), receiptFileName);
+				paymentReceiptPath = urlPathJoin(path.posix.dirname(currentPdfPathUrl), receiptFileName);
 			}
 
 			await db
@@ -523,7 +553,10 @@ export const actions = {
 				.set({
 					payment_status: 'paid',
 					payment_date: new Date().toISOString(),
-					...(paymentReceiptPath && { payment_receipt_path: paymentReceiptPath })
+					...(paymentReceiptPath && {
+						payment_receipt_path: paymentReceiptPath,
+						receipt_email_sent_at: null
+					})
 				})
 				.where(eq(invoice.id, Number(id)));
 
@@ -595,6 +628,11 @@ export const actions = {
 			});
 
 			if (emailResult.success) {
+				await db
+					.update(invoice)
+					.set({ receipt_email_sent_at: new Date().toISOString() })
+					.where(eq(invoice.id, Number(id)));
+
 				return {
 					success: true,
 					message: 'Email enviado correctamente.'

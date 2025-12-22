@@ -9,6 +9,7 @@
 		id: number;
 		pdf_path: string;
 		payment_receipt_path: string | null;
+		receipt_email_sent_at: string | null;
 		value: number;
 		payment_status: string;
 		shipping_status: string;
