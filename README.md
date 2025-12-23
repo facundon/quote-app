@@ -67,3 +67,21 @@ npm run db:migrate
 # Open database studio
 npm run db:studio
 ```
+
+## Self-updates (Windows)
+
+This app supports **in-app updates** from **GitHub Releases**.
+
+### Environment variable
+
+Set `UPDATE_MANIFEST_URL` to your Releases manifest, typically:
+
+- `https://github.com/<owner>/<repo>/releases/latest/download/update-manifest.json`
+
+### Windows install layout (atomic)
+
+Run the server from a `current/` folder so the updater can atomically swap versions:
+
+- `app/current/` (active runtime; run `node build/index.js` from here)
+- `app/releases/<version>/` (staging area for new downloads)
+- `app/.updates/` (downloaded zips + updater script)

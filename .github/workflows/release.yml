@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Cache SvelteKit/Vite
+        uses: actions/cache@v4
+        with:
+          path: |
+            .svelte-kit
+            node_modules/.vite
+          key: ${{ runner.os }}-sveltekit-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-sveltekit-
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package release zip
+        run: |
+          rm -rf release
+          mkdir -p release/quote-app-win-build
+          cp package.json package-lock.json release/quote-app-win-build/
+          cp -R build release/quote-app-win-build/
+          cp -R drizzle release/quote-app-win-build/
+          (cd release/quote-app-win-build && zip -r ../quote-app-win-build.zip .)
+
+      - name: Generate update-manifest.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA256="$(sha256sum release/quote-app-win-build.zip | awk '{print $1}')"
+          RELEASED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/quote-app-win-build.zip"
+          cat > release/update-manifest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "releasedAt": "${RELEASED_AT}",
+            "notes": "",
+            "assetName": "quote-app-win-build.zip",
+            "assetUrl": "${ASSET_URL}",
+            "assetSha256": "${SHA256}"
+          }
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/quote-app-win-build.zip
+            release/update-manifest.json
