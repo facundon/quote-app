@@ -1,6 +1,6 @@
 -- Current sql file was generated after introspecting the database
--- If you want to run this migration please uncomment this code before executing migrations
-/*
+-- Baseline schema migration (was initially generated from introspection).
+-- This file must be executable for fresh installs.
 CREATE TABLE `category` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -43,9 +43,7 @@ CREATE TABLE `invoice` (
 	`reception_date` text,
 	`provider_id` integer NOT NULL,
 	`uploaded_by` text NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`' NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`notes` text,
 	FOREIGN KEY (`provider_id`) REFERENCES `provider`(`id`) ON UPDATE no action ON DELETE no action
 );
-
-*/

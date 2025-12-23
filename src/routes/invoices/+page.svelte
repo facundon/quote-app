@@ -3,7 +3,7 @@
 	import InvoiceCreateModal from './components/InvoiceCreateModal.svelte';
 	import InvoiceEditForm from './components/InvoiceEditForm.svelte';
 	import InvoiceList from './components/InvoiceList.svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 
 	type Invoice = {
 		id: number;

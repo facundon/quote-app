@@ -124,7 +124,7 @@
 		return `Comprobante enviado por email: ${formatted}`;
 	}
 
-	async function sendEmail() {
+	async function sendEmail(): Promise<boolean> {
 		try {
 			const formData = new FormData();
 			formData.append('id', invoice.id.toString());
@@ -141,30 +141,32 @@
 					result.data.error || JSON.parse(result.data)[1] || 'Error al enviar email';
 				toastHelpers.emailError(errorMessage);
 				onEmailSent({ type: 'error', text: errorMessage });
+				return false;
 			} else {
 				console.log('Sending success message');
 				toastHelpers.emailSent();
 				onEmailSent({ type: 'success', text: 'Email enviado correctamente' });
+				return true;
 			}
 		} catch (error) {
 			// Handle network/connection errors
 			console.error('Email send error:', error);
 			toastHelpers.networkError();
 			onEmailSent({ type: 'error', text: 'Error de conexión' });
+			return false;
 		}
 	}
 
 	async function confirmSendEmail() {
-		// Close modal first
+		// Close modal right away (user requested), then show page-level loading indicator
 		closeEmailModal();
 
-		// Dispatch loading event
 		onEmailLoading(invoice.id);
-
-		await sendEmail();
-
-		// Dispatch loading end event
+		const ok = await sendEmail();
 		onEmailLoadingEnd();
+
+		// Refresh to reflect receipt_email_sent_at badge immediately
+		if (ok) onUpdated();
 	}
 
 	async function markAsReceived() {

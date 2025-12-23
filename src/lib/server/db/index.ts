@@ -22,6 +22,7 @@ if (isProd && env.APPDATA) {
 	dbPath = path.join(process.cwd(), 'local.db');
 }
 
-const client = new Database(dbPath);
+export const dbFilePath = dbPath;
+export const sqlite = new Database(dbPath);
 
-export const db = drizzle(client, { schema });
+export const db = drizzle(sqlite, { schema });

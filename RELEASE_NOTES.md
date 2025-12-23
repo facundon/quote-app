@@ -1,3 +1,2 @@
-# Release notes
-
-Se agrego icono para envio de facturas por correo.
+Se arreglo indicador de envio de email.
+Se agrego estado de proceso de envio de email.

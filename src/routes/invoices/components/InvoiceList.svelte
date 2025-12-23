@@ -68,6 +68,11 @@
 	let sendingEmail = $state<number | null>(null);
 	let emailMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
 
+	let sendingEmailInvoice = $derived.by((): Invoice | null => {
+		if (sendingEmail === null) return null;
+		return invoices.find((inv) => inv.id === sendingEmail) ?? null;
+	});
+
 	// Callback functions for email communication
 	function handleEmailSent(message: { type: 'success' | 'error'; text: string }) {
 		emailMessage = message;
@@ -199,6 +204,33 @@
 
 <div class="rounded-lg border border-gray-200 bg-white" role="presentation">
 	<EmailMessage message={emailMessage} />
+	{#if sendingEmailInvoice}
+		<div class="border-b border-gray-200 bg-blue-50 px-6 py-3">
+			<div class="flex items-center gap-2">
+				<svg
+					class="h-5 w-5 animate-spin text-blue-600"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m11.34 11.34l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m11.34-11.34l-2.83 2.83"
+					/>
+				</svg>
+				<span class="text-sm font-medium text-blue-800">
+					Enviando comprobante por email…
+					<span class="font-normal">
+						({sendingEmailInvoice.provider_name || 'Proveedor'} · {sendingEmailInvoice.provider_email ||
+							'sin email'})
+					</span>
+				</span>
+			</div>
+		</div>
+	{/if}
 	<div class="border-b border-gray-200 px-6 py-4">
 		<div class="flex flex-col gap-4">
 			<h3 class="text-lg font-semibold text-gray-900">Facturas ({invoices.length})</h3>
