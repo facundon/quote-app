@@ -32,8 +32,8 @@ export const POST: RequestHandler = async () => {
 		const body: UpdateInstallResponse = {
 			started: false,
 			targetVersion: null,
-			message: 'UPDATE_MANIFEST_URL is not configured',
-			error: 'UPDATE_MANIFEST_URL is not configured'
+			message: 'UPDATE_MANIFEST_URL no está configurada',
+			error: 'UPDATE_MANIFEST_URL no está configurada'
 		};
 		return json(body, { status: 400 });
 	}
@@ -49,7 +49,7 @@ export const POST: RequestHandler = async () => {
 			started: false,
 			targetVersion: null,
 			message:
-				'Updater is not configured for this installation layout. Expected the server to run from an `app/current/` folder.',
+				'El actualizador no está configurado para este entorno. Se espera que el servidor se ejecute desde una carpeta `current/`.',
 			error: 'invalid-install-layout'
 		};
 		return json(body, { status: 409 });
@@ -118,7 +118,7 @@ export const POST: RequestHandler = async () => {
 		const body: UpdateInstallResponse = {
 			started: true,
 			targetVersion: version,
-			message: 'Update downloaded. Installing now; the app may restart shortly.'
+			message: 'Actualización descargada. Instalando… la app puede reiniciarse en breve.'
 		};
 
 		// Do not release the lock here; updater will remove it once swap completes.

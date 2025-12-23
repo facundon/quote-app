@@ -47,7 +47,7 @@
 
 			if (data.error && data.error !== lastError) {
 				lastError = data.error;
-				toastStore.error(`Update check failed: ${data.error}`);
+				toastStore.error(`No se pudo verificar actualizaciones: ${data.error}`);
 			}
 
 			if (
@@ -56,10 +56,10 @@
 				data.latestVersion !== lastNotifiedVersion
 			) {
 				lastNotifiedVersion = data.latestVersion;
-				toastStore.info(`Update available: v${data.latestVersion}`);
+				toastStore.info(`Actualización disponible: v${data.latestVersion}`);
 			}
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Unknown error';
+			const msg = e instanceof Error ? e.message : 'Error desconocido';
 			check = {
 				updateAvailable: false,
 				currentVersion: null,
@@ -107,12 +107,19 @@
 			const res = await fetch('/api/update/install', { method: 'POST' });
 			const data = (await res.json()) as UpdateInstallResponse;
 			if (!res.ok || !data.started) {
-				throw new Error(data.error ?? data.message ?? 'Install failed');
+				const err = data.error ?? '';
+				if (err === 'invalid-install-layout') {
+					throw new Error(
+						'No se puede instalar en este entorno. La app debe ejecutarse desde una carpeta `current/`.'
+					);
+				}
+				throw new Error(data.message ?? data.error ?? 'No se pudo iniciar la instalación');
 			}
-			toastStore.success(data.message);
+			// Always show Spanish UI feedback (server message may vary depending on build/version).
+			toastStore.success('Actualización iniciada. La app puede reiniciarse en breve.');
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Unknown error';
-			toastStore.error(`Update failed: ${msg}`);
+			const msg = e instanceof Error ? e.message : 'Error desconocido';
+			toastStore.error(`Falló la actualización: ${msg}`);
 		} finally {
 			installing = false;
 		}

@@ -28,14 +28,25 @@ export function parseUpdateManifest(value: unknown): UpdateManifest | null {
 
 export async function readCurrentVersion(appRoot: string): Promise<string | null> {
 	try {
-		const pkgPath = path.join(appRoot, 'package.json');
-		const raw = await fs.readFile(pkgPath, 'utf8');
-		const parsed: unknown = JSON.parse(raw);
-		if (!isRecord(parsed)) return null;
-		const v = getString(parsed, 'version');
-		return v;
+		const candidates = [
+			path.join(appRoot, 'package.json'),
+			path.join(appRoot, 'build', 'package.json')
+		];
+
+		for (const pkgPath of candidates) {
+			try {
+				const raw = await fs.readFile(pkgPath, 'utf8');
+				const parsed: unknown = JSON.parse(raw);
+				if (!isRecord(parsed)) continue;
+				const v = getString(parsed, 'version');
+				if (v) return v;
+			} catch {
+				// try next candidate
+			}
+		}
+
+		return null;
 	} catch {
-		console.error('Error reading current version:', appRoot);
 		return null;
 	}
 }

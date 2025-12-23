@@ -41,7 +41,7 @@ export const GET: RequestHandler = async () => {
 			latestVersion: null,
 			releasedAt: null,
 			notes: null,
-			error: 'UPDATE_MANIFEST_URL is not configured'
+			error: 'UPDATE_MANIFEST_URL no está configurada'
 		};
 		return json(body);
 	}

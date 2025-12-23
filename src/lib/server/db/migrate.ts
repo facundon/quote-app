@@ -2,7 +2,6 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env } from '$env/dynamic/private';
 import { db, sqlite } from '$lib/server/db';
 import { findAppRoot } from '$lib/server/update/appRoot';
 
@@ -172,9 +171,10 @@ function ensureMigrationsTableCompatible(migrationsFolder: string): void {
 }
 
 function getMigrationLockPath(): string {
-	const isProd = env.NODE_ENV === 'production';
-	if (isProd && env.APPDATA) {
-		const dir = path.join(env.APPDATA, 'Presupuestador');
+	const isProd = process.env.NODE_ENV === 'production';
+	const appData = process.env.APPDATA;
+	if (isProd && appData) {
+		const dir = path.join(appData, 'Presupuestador');
 		return path.join(dir, 'migrate.lock');
 	}
 	// Dev fallback: lock in repo root next to DB file.

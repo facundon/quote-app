@@ -35,6 +35,10 @@ function uniquePrevDir(base, version) {
 	return path.join(base, \`previous-\${version}-\${stamp}\`);
 }
 
+function ensureDir(dir) {
+	fs.mkdirSync(dir, { recursive: true });
+}
+
 async function main() {
 	const args = process.argv.slice(2);
 	const arg = (name) => {
@@ -55,6 +59,7 @@ async function main() {
 	const currentDir = path.join(base, 'current');
 	const releasesDir = path.join(base, 'releases');
 	const nextDir = path.join(releasesDir, version);
+	const logsDir = path.join(currentDir, 'logs');
 
 	// Give HTTP response time to flush before we kill the server.
 	await sleep(750);
@@ -88,7 +93,16 @@ async function main() {
 
 	// Start new server
 	try {
-		const child = spawn('node', ['build/index.js'], { cwd: currentDir, detached: true, stdio: 'ignore', windowsHide: true });
+		ensureDir(logsDir);
+		const logPath = path.join(logsDir, 'server.log');
+		const out = fs.openSync(logPath, 'a');
+		const err = fs.openSync(logPath, 'a');
+		const child = spawn('node', ['build/index.js'], {
+			cwd: currentDir,
+			detached: true,
+			stdio: ['ignore', out, err],
+			windowsHide: true
+		});
 		child.unref();
 	} catch (e) {
 		console.error('Failed to start new server:', e);
