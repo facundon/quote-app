@@ -5,9 +5,11 @@ let dbPath: string;
 
 if (isProd && process.env.APPDATA) {
 	dbPath = `${process.env.APPDATA}/Presupuestador/presupuestos.db`;
-} else {
-	if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+} else if (process.env.DATABASE_URL) {
 	dbPath = process.env.DATABASE_URL;
+} else {
+	// Default dev/CI db path to avoid failing in environments without APPDATA.
+	dbPath = './local.db';
 }
 
 export default defineConfig({
