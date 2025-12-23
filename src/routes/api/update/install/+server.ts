@@ -4,7 +4,6 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { env } from '$env/dynamic/private';
 import type { UpdateInstallResponse } from '$lib/update/types';
 import { findAppRoot } from '$lib/server/update/appRoot';
 import { parseUpdateManifest } from '$lib/server/update/manifest';
@@ -28,7 +27,7 @@ function ensureDir(dirPath: string): void {
 }
 
 export const POST: RequestHandler = async () => {
-	const manifestUrl = env.UPDATE_MANIFEST_URL;
+	const manifestUrl = process.env.UPDATE_MANIFEST_URL;
 	if (!manifestUrl) {
 		const body: UpdateInstallResponse = {
 			started: false,

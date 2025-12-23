@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { APP_VERSION } from '$lib/version';
 
 	const navItems = [
 		{
@@ -79,6 +80,11 @@
 				<span class="mr-3 text-lg">{adminItem.icon}</span>
 				<span class="font-medium">{adminItem.label}</span>
 			</button>
+		</div>
+
+		<!-- Version -->
+		<div class="border-t border-gray-200 px-4 pt-3 pb-3 text-xs text-gray-400">
+			v{APP_VERSION}
 		</div>
 	</div>
 </nav>

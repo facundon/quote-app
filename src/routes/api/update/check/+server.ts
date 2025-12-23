@@ -2,7 +2,6 @@ import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env } from '$env/dynamic/private';
 import type { UpdateCheckResponse } from '$lib/update/types';
 import { findAppRoot } from '$lib/server/update/appRoot';
 import { parseUpdateManifest, readCurrentVersion } from '$lib/server/update/manifest';
@@ -34,7 +33,7 @@ async function fetchManifest(
 }
 
 export const GET: RequestHandler = async () => {
-	const manifestUrl = env.UPDATE_MANIFEST_URL;
+	const manifestUrl = process.env.UPDATE_MANIFEST_URL;
 	if (!manifestUrl) {
 		const body: UpdateCheckResponse = {
 			updateAvailable: false,

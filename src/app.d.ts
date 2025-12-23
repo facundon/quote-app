@@ -1,6 +1,10 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	// Injected by Vite define() in `vite.config.ts`
+	// eslint-disable-next-line no-var
+	var __APP_VERSION__: string;
+
 	namespace App {
 		// interface Error {}
 		// interface Locals {}
