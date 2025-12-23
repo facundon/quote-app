@@ -53,20 +53,33 @@ jobs:
           SHA256="$(sha256sum release/quote-app-win-build.zip | awk '{print $1}')"
           RELEASED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/quote-app-win-build.zip"
-          cat > release/update-manifest.json <<EOF
-          {
-            "version": "${VERSION}",
-            "releasedAt": "${RELEASED_AT}",
-            "notes": "",
-            "assetName": "quote-app-win-build.zip",
-            "assetUrl": "${ASSET_URL}",
-            "assetSha256": "${SHA256}"
+          export VERSION RELEASED_AT ASSET_URL SHA256
+          node <<'NODE'
+          const fs = require('fs');
+          const notes = fs.readFileSync('RELEASE_NOTES.md', 'utf8').trim();
+          if (!notes) {
+            console.error('RELEASE_NOTES.md is empty');
+            process.exit(1);
           }
-          EOF
+          if (notes.includes('[[WRITE_RELEASE_NOTES_HERE]]')) {
+            console.error('RELEASE_NOTES.md still contains placeholder [[WRITE_RELEASE_NOTES_HERE]]');
+            process.exit(1);
+          }
+          const manifest = {
+            version: process.env.VERSION,
+            releasedAt: process.env.RELEASED_AT,
+            notes,
+            assetName: 'quote-app-win-build.zip',
+            assetUrl: process.env.ASSET_URL,
+            assetSha256: process.env.SHA256
+          };
+          fs.writeFileSync('release/update-manifest.json', JSON.stringify(manifest, null, 2));
+          NODE
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           files: |
             release/quote-app-win-build.zip
             release/update-manifest.json
