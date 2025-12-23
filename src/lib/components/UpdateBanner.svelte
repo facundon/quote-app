@@ -9,6 +9,7 @@
 	let checking = $state(false);
 	let didCheck = $state(false);
 	let lastNotifiedVersion = $state<string | null>(null);
+	let lastError = $state<string | null>(null);
 
 	const POLL_MS = 30 * 60 * 1000;
 
@@ -19,6 +20,11 @@
 			const res = await fetch('/api/update/check');
 			const data = (await res.json()) as UpdateCheckResponse;
 			check = data;
+
+			if (data.error && data.error !== lastError) {
+				lastError = data.error;
+				toastStore.error(`Update check failed: ${data.error}`);
+			}
 
 			if (
 				data.updateAvailable &&
