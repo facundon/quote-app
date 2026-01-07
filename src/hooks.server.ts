@@ -2,9 +2,11 @@ import type { Handle, HandleServerError } from '@sveltejs/kit';
 import dotenv from 'dotenv';
 import { runMigrationsOnce } from '$lib/server/db/migrate';
 import { initRuntimeLogging, logHandledError } from '$lib/server/runtimeLogs';
+import { runStartupCleanupOnce } from '$lib/server/update/cleanup';
 
 // Initialize once on server startup (module scope)
 initRuntimeLogging();
+runStartupCleanupOnce();
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Ensure `.env` is loaded for production builds run via `node build/index.js`.

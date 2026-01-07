@@ -45,6 +45,7 @@ jobs:
           cp package.json package-lock.json release/quote-app-win-build/
           cp -R build release/quote-app-win-build/
           cp -R drizzle release/quote-app-win-build/
+          cp -R runtime release/quote-app-win-build/
           (cd release/quote-app-win-build && zip -r ../quote-app-win-build.zip .)
 
       - name: Generate update-manifest.json

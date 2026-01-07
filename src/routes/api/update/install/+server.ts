@@ -11,7 +11,7 @@ import { getUpdatePaths } from '$lib/server/update/paths';
 import { acquireFileLock } from '$lib/server/update/locks';
 import { downloadToFile, sha256File } from '$lib/server/update/download';
 import { extractZip, npmCiProd } from '$lib/server/update/extract';
-import { ensureUpdaterScript } from '$lib/server/update/updaterScript';
+import { prepareUpdaterScript } from '$lib/server/update/updaterScript';
 
 async function fetchManifest(manifestUrl: string) {
 	const res = await fetch(manifestUrl, { headers: { Accept: 'application/json' } });
@@ -90,29 +90,35 @@ export const POST: RequestHandler = async () => {
 		// Ensure deps are installed in the new release folder (build-only release).
 		await npmCiProd(extractTo);
 
-		const updaterPath = ensureUpdaterScript(paths.updatesDir);
+		const updaterPath = prepareUpdaterScript(appRoot, paths.updatesDir);
 		const nodeBin = process.execPath; // path to node running this server
 
-		const child = spawn(
-			nodeBin,
-			[
-				updaterPath,
-				'--base',
-				paths.installBase,
-				'--version',
-				version,
-				'--serverPid',
-				String(process.pid),
-				'--lockPath',
-				lockPath
-			],
-			{
-				cwd: paths.installBase,
-				detached: true,
-				stdio: 'ignore',
-				windowsHide: true
-			}
-		);
+		// Build updater arguments based on whether PM2 is configured
+		const pm2AppName = process.env.PM2_APP_NAME;
+		const updaterArgs: string[] = [
+			updaterPath,
+			'--base',
+			paths.installBase,
+			'--version',
+			version,
+			'--lockPath',
+			lockPath
+		];
+
+		if (pm2AppName) {
+			// PM2 mode: use pm2 stop/start commands
+			updaterArgs.push('--pm2', pm2AppName);
+		} else {
+			// Direct mode: kill process by PID
+			updaterArgs.push('--serverPid', String(process.pid));
+		}
+
+		const child = spawn(nodeBin, updaterArgs, {
+			cwd: paths.installBase,
+			detached: true,
+			stdio: 'ignore',
+			windowsHide: true
+		});
 		child.unref();
 
 		const body: UpdateInstallResponse = {
