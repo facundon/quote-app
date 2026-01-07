@@ -90,10 +90,15 @@ function pm2Command(args) {
 	const result = spawnSync(pm2Bin, args, {
 		encoding: 'utf8',
 		stdio: ['ignore', 'pipe', 'pipe'],
+		timeout: 30_000,
+		shell: process.platform === 'win32',
 		windowsHide: true
 	});
 
-	const output = (result.stdout || '') + (result.stderr || '');
+	const output =
+		(result.error ? `${result.error.message}\n` : '') +
+		(result.stdout || '') +
+		(result.stderr || '');
 	return {
 		success: result.status === 0,
 		output: output.trim()
@@ -126,6 +131,71 @@ function pm2Start(appName) {
 		console.log(`[pm2] Start output: ${result.output}`);
 	}
 	return result.success;
+}
+
+/**
+ * Get PM2 PID(s) for a given app. Returns [] if none.
+ * @param {string} appName
+ * @returns {number[]}
+ */
+function pm2Pids(appName) {
+	const result = pm2Command(['pid', appName]);
+	if (!result.success) return [];
+	const parts = result.output
+		.split(/[\s,]+/g)
+		.map((s) => s.trim())
+		.filter(Boolean);
+	const pids = [];
+	for (const p of parts) {
+		const n = Number(p);
+		if (Number.isFinite(n) && n > 0) pids.push(n);
+	}
+	return pids;
+}
+
+/**
+ * Attempt to stop a PM2 app and ensure its process is actually gone.
+ * On Windows, this prevents rename() EBUSY by ensuring all handles are released.
+ * @param {string} appName
+ */
+async function stopPm2AndWait(appName) {
+	const before = pm2Pids(appName);
+	console.log('[updater] PM2 PIDs before stop:', before.length ? before.join(', ') : '(none)');
+
+	const stopped = pm2Stop(appName);
+	if (!stopped) {
+		// If PM2 reports stop failure but there are no PIDs, it's likely already stopped.
+		const after = pm2Pids(appName);
+		if (!after.length) {
+			console.log('[updater] PM2 stop returned non-zero but no PIDs found; treating as stopped');
+			return;
+		}
+		console.log('[updater] PM2 stop returned non-zero; waiting for PIDs to exit...');
+	}
+
+	// Wait up to 30 seconds for all PIDs to disappear.
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const pids = pm2Pids(appName);
+		if (!pids.length) return;
+		let anyAlive = false;
+		for (const pid of pids) {
+			if (isAlive(pid)) anyAlive = true;
+		}
+		if (!anyAlive) return;
+		await sleep(500);
+	}
+
+	// Last resort: force kill any remaining PIDs we saw.
+	const still = pm2Pids(appName);
+	if (still.length) {
+		console.log('[updater] Forcing kill of remaining PIDs:', still.join(', '));
+		for (const pid of still) killTree(pid);
+		await sleep(1500);
+	}
+
+	const final = pm2Pids(appName);
+	if (final.length) throw new Error(`PM2 app did not stop in time (pids=${final.join(',')})`);
 }
 
 /**
@@ -200,6 +270,50 @@ function writeStatus(step, extra = {}) {
 		);
 	} catch (e) {
 		console.error('[updater] Failed to write status file:', e);
+	}
+}
+
+/**
+ * Retry fs.renameSync to deal with transient Windows locks (EBUSY/EPERM/EACCES).
+ * @param {string} from
+ * @param {string} to
+ * @param {string} label
+ */
+async function renameWithRetry(from, to, label) {
+	const maxAttempts = 120; // ~60s at 500ms
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			fs.renameSync(from, to);
+			return;
+		} catch (e) {
+			const err = /** @type {any} */ (e);
+			const code = err && err.code;
+			if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') {
+				console.log(
+					`[updater] rename busy (${label}) attempt ${attempt}/${maxAttempts} code=${code}`
+				);
+				await sleep(500);
+				continue;
+			}
+			throw e;
+		}
+	}
+	throw new Error(`rename failed after retries (${label}): ${from} -> ${to}`);
+}
+
+/**
+ * @param {string} currentDir
+ * @returns {string | null}
+ */
+function readCurrentVersionFromDir(currentDir) {
+	try {
+		const pkgPath = path.join(currentDir, 'package.json');
+		if (!fs.existsSync(pkgPath)) return null;
+		const raw = fs.readFileSync(pkgPath, 'utf8');
+		const parsed = JSON.parse(raw);
+		return typeof parsed?.version === 'string' ? parsed.version : null;
+	} catch {
+		return null;
 	}
 }
 
@@ -323,11 +437,7 @@ function parseArgs() {
  */
 async function stopServerPM2(appName) {
 	console.log('[updater] Stopping server via PM2...');
-
-	if (!pm2Stop(appName)) {
-		// App might not be running, which is fine
-		console.log('[updater] PM2 stop returned non-zero (app may not be running)');
-	}
+	await stopPm2AndWait(appName);
 
 	// Give PM2 a moment to fully stop the process
 	await sleep(2000);
@@ -467,7 +577,8 @@ async function main() {
 	// Step 2: Swap folders (atomic on same volume)
 	// -------------------------------------------------------------------------
 
-	const prevDir = uniquePrevDir(base, version);
+	const currentVersion = readCurrentVersionFromDir(currentDir) ?? version;
+	const prevDir = uniquePrevDir(base, currentVersion);
 
 	try {
 		writeStatus('swapping', { version, message: 'Swapping folders' });
@@ -479,10 +590,10 @@ async function main() {
 		}
 
 		console.log(`[updater] Backing up current to: ${path.basename(prevDir)}`);
-		fs.renameSync(currentDir, prevDir);
+		await renameWithRetry(currentDir, prevDir, 'current->previous');
 
 		console.log('[updater] Activating new version...');
-		fs.renameSync(nextDir, currentDir);
+		await renameWithRetry(nextDir, currentDir, 'next->current');
 
 		console.log('[updater] Folder swap complete');
 		writeStatus('swapped', { version, message: 'Folder swap complete' });
@@ -494,7 +605,7 @@ async function main() {
 		if (!fs.existsSync(currentDir) && fs.existsSync(prevDir)) {
 			console.log('[updater] Attempting rollback...');
 			try {
-				fs.renameSync(prevDir, currentDir);
+				await renameWithRetry(prevDir, currentDir, 'rollback previous->current');
 				console.log('[updater] Rollback successful');
 			} catch {
 				console.error('[updater] Rollback failed');

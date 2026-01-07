@@ -13,19 +13,13 @@ function ensureDir(dirPath: string): void {
 export function acquireFileLock(lockPath: string): FileLock {
 	ensureDir(path.dirname(lockPath));
 
-	const fd = fs.openSync(lockPath, 'wx');
 	fs.writeFileSync(
-		fd,
+		lockPath,
 		JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }, null, 2),
-		'utf8'
+		{ encoding: 'utf8', flag: 'wx' }
 	);
 
 	const release = () => {
-		try {
-			fs.closeSync(fd);
-		} catch {
-			console.error('Error closing lock file:', lockPath);
-		}
 		try {
 			fs.unlinkSync(lockPath);
 		} catch {
