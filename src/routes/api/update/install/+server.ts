@@ -194,12 +194,22 @@ export const POST: RequestHandler = async () => {
 		let updaterLogFd: number | null = null;
 
 		if (isWindows) {
-			// The empty string after /b is the window title (required by start command).
+			// Build the full command string for `start` with proper quoting.
+			// The `start` command syntax: start "" /b "command" args...
+			// Paths with spaces MUST be quoted, otherwise Windows truncates at the space.
+			const quoteIfNeeded = (s: string): string => (s.includes(' ') ? `"${s}"` : s);
+			const quotedNodeBin = quoteIfNeeded(nodeBin);
+			const quotedUpdaterArgs = updaterArgs.map(quoteIfNeeded);
+
+			// Build the entire command as a single string to avoid spawn argument parsing issues.
+			// Format: start "" /b "node.exe" "updater.mjs" --arg1 value1 ...
+			const startCommand = `start "" /b ${quotedNodeBin} ${quotedUpdaterArgs.join(' ')}`;
+
 			// This creates a process in a new console session, fully detached from the parent tree.
 			// Stdio must be 'ignore' since the started process won't inherit file descriptors.
 			// The updater handles its own logging via --logPath.
 			spawnCommand = 'cmd.exe';
-			spawnArgs = ['/c', 'start', '/b', '', nodeBin, ...updaterArgs];
+			spawnArgs = ['/c', startCommand];
 			spawnStdio = 'ignore';
 		} else {
 			// On POSIX, we can redirect stdio to a file descriptor
@@ -212,9 +222,7 @@ export const POST: RequestHandler = async () => {
 		const child = spawn(spawnCommand, spawnArgs, {
 			cwd: paths.installBase,
 			stdio: spawnStdio,
-			windowsHide: true,
-			// On Windows with cmd.exe, shell mode helps with path resolution
-			shell: isWindows
+			windowsHide: true
 		});
 
 		// Ensure we fail fast with a useful message if the process cannot be spawned.

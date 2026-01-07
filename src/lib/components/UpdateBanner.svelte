@@ -9,7 +9,6 @@
 	let installing = $state(false);
 	let dismissedVersion = $state<string | null>(null);
 	let checking = $state(false);
-	let didCheck = $state(false);
 	let lastNotifiedVersion = $state<string | null>(null);
 	let lastError = $state<string | null>(null);
 	let showChanges = $state(true);
@@ -17,6 +16,9 @@
 
 	const POLL_MS = 30 * 60 * 1000;
 	const FOCUS_COOLDOWN_MS = 10_000;
+
+	// Non-reactive flag to prevent effect from re-running and removing listeners
+	let effectMounted = false;
 
 	function parseNotes(notes: string | null | undefined): NoteBlock[] {
 		if (!notes) return [];
@@ -84,9 +86,10 @@
 
 	$effect(() => {
 		if (!browser) return;
-		if (didCheck) return;
-		// Check on initial mount only; keep it simple.
-		didCheck = true;
+		if (effectMounted) return;
+		effectMounted = true;
+
+		// Initial check on mount
 		maybeRunCheck();
 
 		const interval = window.setInterval(() => {
