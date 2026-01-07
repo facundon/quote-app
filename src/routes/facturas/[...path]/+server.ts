@@ -1,6 +1,11 @@
 import { error, isHttpError } from '@sveltejs/kit';
 import fs from 'fs';
 import path from 'path';
+import {
+	getInvoicesDir,
+	isInsideDir,
+	resolveInvoicesFileFromUrlRelativePath
+} from '$lib/server/invoices/storage';
 
 // MIME type mapping for common file types
 const mimeTypes: Record<string, string> = {
@@ -25,15 +30,16 @@ export async function GET({ params }) {
 	// Handle path parameter - it might be an array or string
 	const pathSegments = Array.isArray(params.path) ? params.path : [params.path];
 	const relativePath = pathSegments.join('/').replaceAll('\\', '/');
-	const filePath = path.join(process.cwd(), 'facturas', ...relativePath.split('/'));
+	const { fullPath: filePath } = resolveInvoicesFileFromUrlRelativePath(relativePath);
 
 	try {
-		// Check if file exists and is within the facturas directory
+		// Check if file exists and is within the invoices directory
 		const normalizedPath = path.normalize(filePath);
-		const facturasDir = path.join(process.cwd(), 'facturas');
+		const resolvedInvoicesDir = getInvoicesDir();
 
-		if (!normalizedPath.startsWith(facturasDir)) {
-			console.error('Access denied - path outside facturas directory');
+		// Ensure requested path is inside the configured invoices directory (prevents traversal)
+		if (!isInsideDir(resolvedInvoicesDir, normalizedPath)) {
+			console.error('Access denied - path outside invoices directory');
 			error(403, 'Access denied');
 		}
 

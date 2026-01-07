@@ -3,6 +3,10 @@ import type { Provider } from '$lib/server/db/schema';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import {
+	INVOICES_FOLDER_NAME,
+	resolveInvoicesFileFromStoredPath
+} from '$lib/server/invoices/storage';
 
 dotenv.config();
 
@@ -46,7 +50,9 @@ export class EmailService {
 			}
 
 			// Check if file exists
-			const fullFilePath = path.join(process.cwd(), filePath);
+			const fullFilePath = filePath.startsWith(INVOICES_FOLDER_NAME)
+				? resolveInvoicesFileFromStoredPath(filePath)
+				: path.join(process.cwd(), filePath);
 			if (!fs.existsSync(fullFilePath)) {
 				return {
 					success: false,
@@ -57,7 +63,7 @@ export class EmailService {
 			// Get file extension and determine filename
 			const fileExtension = path.extname(filePath).toLowerCase();
 			const fileName = path.basename(filePath);
-			
+
 			// Determine attachment filename based on file type
 			let attachmentFilename: string;
 			if (fileExtension === '.pdf') {

@@ -7,6 +7,11 @@ import { writeFile } from 'fs/promises';
 import { emailService } from '$lib/server/email';
 import { fail } from '@sveltejs/kit';
 import { EMPLOYEES } from '../../_shared/employees';
+import {
+	INVOICES_FOLDER_NAME,
+	getInvoicesDir,
+	resolveInvoicesFileFromStoredPath
+} from '$lib/server/invoices/storage';
 
 // Allowed file types for uploads
 const allowedMimeTypes = [
@@ -40,7 +45,7 @@ function urlPathJoin(...parts: string[]): string {
 
 function urlPathToFsPath(urlPath: string): string {
 	const normalized = toUrlPath(urlPath);
-	return path.join(process.cwd(), ...normalized.split('/'));
+	return resolveInvoicesFileFromStoredPath(normalized);
 }
 
 function ensureDirExists(dirPath: string): void {
@@ -172,7 +177,7 @@ export const actions = {
 			const providerName = providerData[0].name;
 
 			// Create base facturas directory
-			const baseDir = path.join(process.cwd(), 'facturas');
+			const baseDir = getInvoicesDir();
 			if (!fs.existsSync(baseDir)) {
 				fs.mkdirSync(baseDir, { recursive: true });
 			}
@@ -206,7 +211,7 @@ export const actions = {
 			await writeFile(filePath, buffer);
 
 			// Store relative path in database
-			const relativePath = urlPathJoin('facturas', sanitizedProviderName, fileName);
+			const relativePath = urlPathJoin(INVOICES_FOLDER_NAME, sanitizedProviderName, fileName);
 
 			// Handle payment receipt file if provided
 			let paymentReceiptPath: string | null = null;
@@ -227,7 +232,11 @@ export const actions = {
 				await writeFile(receiptFilePath, receiptBuffer);
 
 				// Store relative path in database
-				paymentReceiptPath = urlPathJoin('facturas', sanitizedProviderName, receiptFileName);
+				paymentReceiptPath = urlPathJoin(
+					INVOICES_FOLDER_NAME,
+					sanitizedProviderName,
+					receiptFileName
+				);
 			}
 
 			await db.insert(invoice).values({
@@ -308,7 +317,10 @@ export const actions = {
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
 				ensureDirExists(pdfDir);
-				const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
+				const pdfFileName = path.posix.basename(
+					currentPdfPathUrl,
+					path.posix.extname(currentPdfPathUrl)
+				);
 				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 
@@ -467,7 +479,10 @@ export const actions = {
 			const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 			const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
 			ensureDirExists(pdfDir);
-			const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
+			const pdfFileName = path.posix.basename(
+				currentPdfPathUrl,
+				path.posix.extname(currentPdfPathUrl)
+			);
 			const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 			const receiptFilePath = path.join(pdfDir, receiptFileName);
 
@@ -477,7 +492,10 @@ export const actions = {
 			await writeFile(receiptFilePath, receiptBuffer);
 
 			// Store relative path in database
-			const paymentReceiptPath = urlPathJoin(path.posix.dirname(currentPdfPathUrl), receiptFileName);
+			const paymentReceiptPath = urlPathJoin(
+				path.posix.dirname(currentPdfPathUrl),
+				receiptFileName
+			);
 
 			await db
 				.update(invoice)
@@ -535,7 +553,10 @@ export const actions = {
 				const receiptExtension = getExtensionFromMimeType(paymentReceiptFile.type);
 				const pdfDir = path.dirname(urlPathToFsPath(currentPdfPathUrl));
 				ensureDirExists(pdfDir);
-				const pdfFileName = path.posix.basename(currentPdfPathUrl, path.posix.extname(currentPdfPathUrl));
+				const pdfFileName = path.posix.basename(
+					currentPdfPathUrl,
+					path.posix.extname(currentPdfPathUrl)
+				);
 				const receiptFileName = `${pdfFileName}_comprobante${receiptExtension}`;
 				const receiptFilePath = path.join(pdfDir, receiptFileName);
 

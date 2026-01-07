@@ -28,6 +28,8 @@ C:\Apps\QuoteApp\
 │
 ├── ecosystem.config.cjs              ← PM2 configuration
 │
+├── facturas/                         ← Uploaded invoice files (persistent across updates)
+│
 ├── current/                          ← Active server (run from here)
 │   ├── build/                        ← Compiled SvelteKit app
 │   │   ├── client/                   ← Static assets (JS, CSS)
@@ -40,7 +42,6 @@ C:\Apps\QuoteApp\
 │   ├── node_modules/                 ← Production dependencies
 │   ├── logs/                         ← Server logs (created at runtime)
 │   │   └── server.log
-│   ├── facturas/                     ← Uploaded invoice files (created at runtime)
 │   ├── package.json
 │   ├── package-lock.json
 │   └── .env                          ← Environment variables (optional with PM2)
