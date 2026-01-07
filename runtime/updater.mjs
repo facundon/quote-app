@@ -88,6 +88,16 @@ function killTree(pid) {
 function pm2Command(args) {
 	const pm2Bin = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
 	return new Promise((resolve) => {
+		let resolved = false;
+		const finish = (
+			/** @type {{ success: boolean, output: string, timedOut: boolean }} */ result
+		) => {
+			if (resolved) return;
+			resolved = true;
+			clearTimeout(timer);
+			resolve(result);
+		};
+
 		const child = spawn(pm2Bin, args, {
 			stdio: ['ignore', 'pipe', 'pipe'],
 			shell: process.platform === 'win32',
@@ -99,9 +109,8 @@ function pm2Command(args) {
 		child.stdout?.on('data', (d) => (out += String(d)));
 		child.stderr?.on('data', (d) => (err += String(d)));
 
-		let timedOut = false;
 		const timer = setTimeout(() => {
-			timedOut = true;
+			console.log(`[pm2] Command timed out: pm2 ${args.join(' ')}`);
 			try {
 				if (process.platform === 'win32' && child.pid) {
 					// Ensure the whole tree is killed on Windows.
@@ -115,18 +124,17 @@ function pm2Command(args) {
 			} catch {
 				// ignore
 			}
+			// Resolve immediately on timeout — don't wait for 'close' event
+			finish({ success: false, output: `${out}${err}`.trim(), timedOut: true });
 		}, 30_000);
 
 		child.on('error', (e) => {
-			clearTimeout(timer);
 			const msg = e && e.message ? e.message : String(e);
-			resolve({ success: false, output: `${msg}\n${out}${err}`.trim(), timedOut });
+			finish({ success: false, output: `${msg}\n${out}${err}`.trim(), timedOut: false });
 		});
 
 		child.on('close', (code) => {
-			clearTimeout(timer);
-			const output = `${out}${err}`.trim();
-			resolve({ success: code === 0, output, timedOut });
+			finish({ success: code === 0, output: `${out}${err}`.trim(), timedOut: false });
 		});
 	});
 }

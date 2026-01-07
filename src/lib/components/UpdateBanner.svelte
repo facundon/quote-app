@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type {
-		UpdateCheckResponse,
-		UpdateInstallResponse,
-		UpdateStatusResponse
-	} from '$lib/update/types';
+	import type { UpdateCheckResponse, UpdateInstallResponse } from '$lib/update/types';
 	import { toastStore } from '$lib/stores/toast';
 
 	type NoteBlock = { kind: 'bullet'; text: string } | { kind: 'text'; text: string };
@@ -18,49 +14,9 @@
 	let lastError = $state<string | null>(null);
 	let showChanges = $state(true);
 	let lastCheckedAtMs = $state(0);
-	let status = $state<UpdateStatusResponse | null>(null);
 
 	const POLL_MS = 30 * 60 * 1000;
 	const FOCUS_COOLDOWN_MS = 10_000;
-	const INSTALL_POLL_MS = 1000;
-
-	function statusStepLabel(
-		step: UpdateStatusResponse['status'] extends infer S
-			? S extends { step: infer T }
-				? T
-				: never
-			: never
-	): string {
-		switch (step) {
-			case 'starting':
-				return 'Iniciando…';
-			case 'stopping':
-				return 'Deteniendo servidor…';
-			case 'stopped':
-				return 'Servidor detenido…';
-			case 'swapping':
-				return 'Aplicando actualización…';
-			case 'swapped':
-				return 'Actualización aplicada…';
-			case 'starting-server':
-				return 'Iniciando servidor…';
-			case 'done':
-				return 'Completada';
-			case 'error':
-				return 'Error';
-			case 'idle':
-			default:
-				return 'En progreso…';
-		}
-	}
-
-	let installStatusText = $derived.by(() => {
-		if (!installing) return null;
-		const s = status?.status;
-		if (!s) return 'En progreso…';
-		if (s.message) return s.message;
-		return statusStepLabel(s.step);
-	});
 
 	function parseNotes(notes: string | null | undefined): NoteBlock[] {
 		if (!notes) return [];
@@ -126,64 +82,6 @@
 		runCheck();
 	}
 
-	async function fetchStatus(): Promise<UpdateStatusResponse | null> {
-		try {
-			const res = await fetch('/api/update/status');
-			if (!res.ok) return null;
-			return (await res.json()) as UpdateStatusResponse;
-		} catch {
-			return null;
-		}
-	}
-
-	function startInstallPolling() {
-		if (!browser) return;
-		let consecutiveFailures = 0;
-		let finished = false;
-
-		const tick = async () => {
-			if (finished) return;
-			const s = await fetchStatus();
-			if (!s) {
-				consecutiveFailures++;
-				// During restart the server may briefly be unavailable. If it flaps,
-				// reloading helps the browser reconnect to the new instance.
-				if (consecutiveFailures >= 3) {
-					window.location.reload();
-				}
-				return;
-			}
-
-			consecutiveFailures = 0;
-			status = s;
-
-			if (s.status?.step === 'error') {
-				finished = true;
-				installing = false;
-				toastStore.error(`Falló la actualización: ${s.status.error ?? 'Error desconocido'}`);
-				return;
-			}
-
-			if (s.status?.step === 'done') {
-				finished = true;
-				toastStore.success('Actualización completa. Recargando…');
-				setTimeout(() => window.location.reload(), 300);
-				return;
-			}
-
-			// If lock is gone and we have *any* status, treat it as completed enough to refresh UI.
-			if (!s.lockExists && s.status) {
-				finished = true;
-				toastStore.success('Actualización aplicada. Recargando…');
-				setTimeout(() => window.location.reload(), 300);
-			}
-		};
-
-		tick();
-		const interval = window.setInterval(tick, INSTALL_POLL_MS);
-		$effect(() => () => window.clearInterval(interval));
-	}
-
 	$effect(() => {
 		if (!browser) return;
 		if (didCheck) return;
@@ -225,7 +123,6 @@
 
 	async function install() {
 		if (installing) return;
-		status = null;
 		installing = true;
 		try {
 			const res = await fetch('/api/update/install', { method: 'POST' });
@@ -239,8 +136,9 @@
 				}
 				throw new Error(data.message ?? data.error ?? 'No se pudo iniciar la instalación');
 			}
-			toastStore.success('Actualización iniciada. Finalizando…');
-			startInstallPolling();
+			toastStore.success('Actualización iniciada. La app se reiniciará en breve.');
+			// The server will stop/restart — no polling needed.
+			// User can refresh manually once the server is back up.
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : 'Error desconocido';
 			toastStore.error(`Falló la actualización: ${msg}`);
@@ -338,10 +236,8 @@
 							Actualizar ahora
 						{/if}
 					</button>
-					{#if installing && installStatusText}
-						<div class="text-sm text-blue-800">
-							Estado: <span class="font-medium">{installStatusText}</span>
-						</div>
+					{#if installing}
+						<div class="text-sm text-blue-800">La app se reiniciará en breve…</div>
 					{/if}
 				</div>
 			</div>
