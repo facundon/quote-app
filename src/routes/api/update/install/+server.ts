@@ -172,12 +172,21 @@ export const POST: RequestHandler = async () => {
 			args: updaterArgs
 		});
 
+		const updaterLogPath = path.join(
+			paths.updatesDir,
+			`updater-${version}-${requestId.replaceAll(':', '-')}.log`
+		);
+		const updaterLogFd = fs.openSync(updaterLogPath, 'a');
+
+		console.log('[update/install]', requestId, 'updater log file', { updaterLogPath });
+
 		// On POSIX, `detached` is typically unnecessary for letting a child survive a parent exit,
 		// and can trigger platform-specific spawn failures in some environments.
 		const child = spawn(nodeBin, updaterArgs, {
 			cwd: paths.installBase,
 			detached: process.platform === 'win32',
-			stdio: 'ignore',
+			// Write updater output to a file so we can debug detached failures in PM2/Windows services.
+			stdio: ['ignore', updaterLogFd, updaterLogFd],
 			windowsHide: true
 		});
 
@@ -193,7 +202,8 @@ export const POST: RequestHandler = async () => {
 					path: e.path,
 					nodeBin,
 					cwd: paths.installBase,
-					args: updaterArgs
+					args: updaterArgs,
+					updaterLogPath
 				};
 				console.error('[update/install]', requestId, 'updater spawn error', details);
 				reject(new Error(`Updater spawn failed: ${JSON.stringify(details)}`));
@@ -201,6 +211,11 @@ export const POST: RequestHandler = async () => {
 		});
 
 		child.unref();
+		try {
+			fs.closeSync(updaterLogFd);
+		} catch {
+			// ignore
+		}
 
 		const body: UpdateInstallResponse = {
 			started: true,

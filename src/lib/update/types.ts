@@ -26,3 +26,31 @@ export interface UpdateInstallResponse {
 	error?: string;
 	errorDetails?: string;
 }
+
+export type UpdateInstallStep =
+	| 'idle'
+	| 'starting'
+	| 'stopping'
+	| 'stopped'
+	| 'swapping'
+	| 'swapped'
+	| 'starting-server'
+	| 'done'
+	| 'error';
+
+export interface UpdateStatus {
+	version: string | null;
+	step: UpdateInstallStep;
+	updatedAt: IsoDateTimeString;
+	message?: string;
+	error?: string;
+}
+
+export interface UpdateStatusResponse {
+	lockExists: boolean;
+	lockPath: string | null;
+	lockContents: string | null;
+	status: UpdateStatus | null;
+	statusPath: string | null;
+	currentVersion: string | null;
+}

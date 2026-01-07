@@ -157,6 +157,52 @@ function safeUnlink(file) {
 	}
 }
 
+/** @type {string | null} */
+let globalLockPath = null;
+/** @type {string | null} */
+let globalStatusPath = null;
+
+// Always attempt to release the install lock on exit (success or failure),
+// otherwise a failed update can block all future updates.
+process.on('exit', () => {
+	if (globalLockPath) safeUnlink(globalLockPath);
+});
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+	process.on(sig, () => {
+		console.error(`[updater] Received ${sig}, exiting...`);
+		process.exit(1);
+	});
+}
+
+/**
+ * Best-effort status writer for external observers (UI/logs).
+ * @param {string} step
+ * @param {object} extra
+ */
+function writeStatus(step, extra = {}) {
+	if (!globalStatusPath) return;
+	try {
+		fs.writeFileSync(
+			globalStatusPath,
+			JSON.stringify(
+				{
+					version: extra.version ?? null,
+					step,
+					updatedAt: new Date().toISOString(),
+					message: extra.message,
+					error: extra.error
+				},
+				null,
+				2
+			),
+			'utf8'
+		);
+	} catch (e) {
+		console.error('[updater] Failed to write status file:', e);
+	}
+}
+
 /**
  * Generate a unique directory name for the previous version backup.
  * @param {string} base - Install base directory
@@ -356,6 +402,9 @@ function startServerDirect(currentDir) {
 
 async function main() {
 	const { base, version, pm2AppName, serverPid, lockPath } = parseArgs();
+	globalLockPath = lockPath;
+	globalStatusPath = base ? path.join(base, '.updates', 'status.json') : null;
+	writeStatus('starting', { version, message: 'Updater started' });
 
 	// Validate required arguments
 	if (!base || !version) {
@@ -401,12 +450,16 @@ async function main() {
 
 	try {
 		if (usePM2) {
+			writeStatus('stopping', { version, message: 'Stopping server via PM2' });
 			await stopServerPM2(pm2AppName);
 		} else {
+			writeStatus('stopping', { version, message: 'Stopping server (direct mode)' });
 			await stopServerDirect(/** @type {number} */ (serverPid));
 		}
+		writeStatus('stopped', { version, message: 'Server stopped' });
 	} catch (e) {
 		console.error('[updater] Failed to stop server:', e);
+		writeStatus('error', { version, error: String(e?.message || e) });
 		process.exit(3);
 	}
 
@@ -417,6 +470,7 @@ async function main() {
 	const prevDir = uniquePrevDir(base, version);
 
 	try {
+		writeStatus('swapping', { version, message: 'Swapping folders' });
 		if (!fs.existsSync(nextDir)) {
 			throw new Error(`Next release folder missing: ${nextDir}`);
 		}
@@ -431,8 +485,10 @@ async function main() {
 		fs.renameSync(nextDir, currentDir);
 
 		console.log('[updater] Folder swap complete');
+		writeStatus('swapped', { version, message: 'Folder swap complete' });
 	} catch (e) {
 		console.error('[updater] Swap failed:', e);
+		writeStatus('error', { version, error: String(e?.message || e) });
 
 		// Try rollback if we renamed current away but didn't complete
 		if (!fs.existsSync(currentDir) && fs.existsSync(prevDir)) {
@@ -460,18 +516,16 @@ async function main() {
 
 	try {
 		if (usePM2) {
+			writeStatus('starting-server', { version, message: 'Starting server via PM2' });
 			startServerPM2(pm2AppName);
 		} else {
+			writeStatus('starting-server', { version, message: 'Starting server (direct mode)' });
 			startServerDirect(currentDir);
 		}
 	} catch (e) {
 		console.error('[updater] Failed to start new server:', e);
+		writeStatus('error', { version, error: String(e?.message || e) });
 		process.exit(4);
-	} finally {
-		// Release the install lock
-		if (lockPath) {
-			safeUnlink(lockPath);
-		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -490,6 +544,7 @@ async function main() {
 	}
 
 	console.log(`[updater] Update to ${version} complete!`);
+	writeStatus('done', { version, message: 'Update complete' });
 	process.exit(0);
 }
 
@@ -499,5 +554,6 @@ async function main() {
 
 main().catch((e) => {
 	console.error('[updater] Fatal error:', e);
+	writeStatus('error', { version: null, error: String(e?.message || e) });
 	process.exit(1);
 });
