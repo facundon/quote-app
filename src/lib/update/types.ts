@@ -24,4 +24,5 @@ export interface UpdateInstallResponse {
 	targetVersion: string | null;
 	message: string;
 	error?: string;
+	errorDetails?: string;
 }

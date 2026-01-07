@@ -30,7 +30,30 @@ function isNonEmptyString(value: unknown): value is string {
 	return typeof value === 'string' && value.trim().length > 0;
 }
 
+function describeError(err: unknown): { message: string; details: string } {
+	if (err instanceof Error) {
+		const e = err as Error & Partial<NodeJS.ErrnoException>;
+		const detailsObj = {
+			name: e.name,
+			message: e.message,
+			stack: e.stack,
+			code: e.code,
+			errno: e.errno,
+			syscall: e.syscall,
+			path: e.path
+		};
+		return { message: e.message, details: JSON.stringify(detailsObj) };
+	}
+
+	try {
+		return { message: String(err), details: JSON.stringify(err) };
+	} catch {
+		return { message: 'Unknown error', details: 'Unserializable error' };
+	}
+}
+
 export const POST: RequestHandler = async () => {
+	const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 	const manifestUrl = process.env.UPDATE_MANIFEST_URL;
 	if (!manifestUrl) {
 		const body: UpdateInstallResponse = {
@@ -39,12 +62,20 @@ export const POST: RequestHandler = async () => {
 			message: 'UPDATE_MANIFEST_URL no está configurada',
 			error: 'UPDATE_MANIFEST_URL no está configurada'
 		};
+		console.error('[update/install]', requestId, 'missing UPDATE_MANIFEST_URL');
 		return json(body, { status: 400 });
 	}
 
 	const startDir = path.dirname(fileURLToPath(import.meta.url));
 	const appRoot = findAppRoot(startDir);
 	const paths = getUpdatePaths(appRoot);
+
+	console.log('[update/install]', requestId, 'starting', {
+		appRoot,
+		installBase: paths.installBase,
+		updatesDir: paths.updatesDir,
+		releasesDir: paths.releasesDir
+	});
 
 	// This updater is designed for the `.../current/` atomic layout.
 	// In dev environments it can be disabled or ignored, but on Windows deployments it should be used.
@@ -56,6 +87,7 @@ export const POST: RequestHandler = async () => {
 				'El actualizador no está configurado para este entorno. Se espera que el servidor se ejecute desde una carpeta `current/`.',
 			error: 'invalid-install-layout'
 		};
+		console.error('[update/install]', requestId, 'invalid install layout', { appRoot });
 		return json(body, { status: 409 });
 	}
 
@@ -73,6 +105,7 @@ export const POST: RequestHandler = async () => {
 			message: 'An update is already in progress.',
 			error: 'install.lock exists'
 		};
+		console.error('[update/install]', requestId, 'lock exists', { lockPath });
 		return json(body, { status: 409 });
 	}
 
@@ -80,18 +113,26 @@ export const POST: RequestHandler = async () => {
 		const manifest = await fetchManifest(manifestUrl);
 		const version = manifest.version;
 
+		console.log('[update/install]', requestId, 'manifest fetched', {
+			version,
+			assetName: manifest.assetName
+		});
+
 		const zipPath = path.join(paths.updatesDir, `${version}.zip`);
 		const extractTo = path.join(paths.releasesDir, version);
 
+		console.log('[update/install]', requestId, 'downloading', { zipPath });
 		await downloadToFile(manifest.assetUrl, zipPath);
 		const actualSha = await sha256File(zipPath);
 		if (actualSha.toLowerCase() !== manifest.assetSha256.toLowerCase()) {
 			throw new Error(`SHA256 mismatch. expected=${manifest.assetSha256} actual=${actualSha}`);
 		}
 
+		console.log('[update/install]', requestId, 'extracting', { extractTo });
 		await extractZip(zipPath, extractTo);
 
 		// Ensure deps are installed in the new release folder (build-only release).
+		console.log('[update/install]', requestId, 'installing deps (npm ci)', { cwd: extractTo });
 		await npmCiProd(extractTo);
 
 		const updaterPath = prepareUpdaterScript(appRoot, paths.updatesDir);
@@ -124,6 +165,13 @@ export const POST: RequestHandler = async () => {
 			throw new Error(`Invalid install base (cwd): ${JSON.stringify(paths.installBase)}`);
 		}
 
+		console.log('[update/install]', requestId, 'spawning updater', {
+			nodeBin,
+			updaterPath,
+			cwd: paths.installBase,
+			args: updaterArgs
+		});
+
 		// On POSIX, `detached` is typically unnecessary for letting a child survive a parent exit,
 		// and can trigger platform-specific spawn failures in some environments.
 		const child = spawn(nodeBin, updaterArgs, {
@@ -147,6 +195,7 @@ export const POST: RequestHandler = async () => {
 					cwd: paths.installBase,
 					args: updaterArgs
 				};
+				console.error('[update/install]', requestId, 'updater spawn error', details);
 				reject(new Error(`Updater spawn failed: ${JSON.stringify(details)}`));
 			});
 		});
@@ -163,11 +212,14 @@ export const POST: RequestHandler = async () => {
 		return json(body);
 	} catch (e) {
 		lock.release();
+		const described = describeError(e);
+		console.error('[update/install]', requestId, 'failed', described.details);
 		const body: UpdateInstallResponse = {
 			started: false,
 			targetVersion: null,
-			message: e instanceof Error ? e.message : 'Unknown error',
-			error: e instanceof Error ? e.message : 'Unknown error'
+			message: described.message,
+			error: described.message,
+			errorDetails: described.details
 		};
 		return json(body, { status: 500 });
 	}

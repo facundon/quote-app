@@ -39,6 +39,7 @@ function spawnAndWait(command: string, args: string[], cwd: string): Promise<voi
 				syscall: e.syscall,
 				path: e.path
 			};
+			console.error('[update/spawn]', 'error', details);
 			reject(new Error(`Failed to start command: ${JSON.stringify(details)}`));
 		});
 		child.on('exit', (code) => {
