@@ -81,40 +81,67 @@ function killTree(pid) {
 }
 
 /**
- * Execute a PM2 command synchronously.
+ * Execute a PM2 command with a hard timeout (spawnSync can hang in some Windows setups).
  * @param {string[]} args - PM2 command arguments
- * @returns {{ success: boolean, output: string }}
+ * @returns {Promise<{ success: boolean, output: string, timedOut: boolean }>}
  */
 function pm2Command(args) {
 	const pm2Bin = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
-	const result = spawnSync(pm2Bin, args, {
-		encoding: 'utf8',
-		stdio: ['ignore', 'pipe', 'pipe'],
-		timeout: 30_000,
-		shell: process.platform === 'win32',
-		windowsHide: true
-	});
+	return new Promise((resolve) => {
+		const child = spawn(pm2Bin, args, {
+			stdio: ['ignore', 'pipe', 'pipe'],
+			shell: process.platform === 'win32',
+			windowsHide: true
+		});
 
-	const output =
-		(result.error ? `${result.error.message}\n` : '') +
-		(result.stdout || '') +
-		(result.stderr || '');
-	return {
-		success: result.status === 0,
-		output: output.trim()
-	};
+		let out = '';
+		let err = '';
+		child.stdout?.on('data', (d) => (out += String(d)));
+		child.stderr?.on('data', (d) => (err += String(d)));
+
+		let timedOut = false;
+		const timer = setTimeout(() => {
+			timedOut = true;
+			try {
+				if (process.platform === 'win32' && child.pid) {
+					// Ensure the whole tree is killed on Windows.
+					spawnSync('cmd.exe', ['/c', 'taskkill', '/PID', String(child.pid), '/T', '/F'], {
+						stdio: 'ignore',
+						windowsHide: true
+					});
+				} else {
+					child.kill('SIGKILL');
+				}
+			} catch {
+				// ignore
+			}
+		}, 30_000);
+
+		child.on('error', (e) => {
+			clearTimeout(timer);
+			const msg = e && e.message ? e.message : String(e);
+			resolve({ success: false, output: `${msg}\n${out}${err}`.trim(), timedOut });
+		});
+
+		child.on('close', (code) => {
+			clearTimeout(timer);
+			const output = `${out}${err}`.trim();
+			resolve({ success: code === 0, output, timedOut });
+		});
+	});
 }
 
 /**
  * Stop an app managed by PM2.
  * @param {string} appName
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-function pm2Stop(appName) {
+async function pm2Stop(appName) {
 	console.log(`[pm2] Stopping app: ${appName}`);
-	const result = pm2Command(['stop', appName]);
+	const result = await pm2Command(['stop', appName]);
 	if (!result.success) {
 		console.log(`[pm2] Stop output: ${result.output}`);
+		if (result.timedOut) console.log('[pm2] Stop timed out');
 	}
 	return result.success;
 }
@@ -122,13 +149,14 @@ function pm2Stop(appName) {
 /**
  * Start/restart an app managed by PM2.
  * @param {string} appName
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-function pm2Start(appName) {
+async function pm2Start(appName) {
 	console.log(`[pm2] Starting app: ${appName}`);
-	const result = pm2Command(['start', appName]);
+	const result = await pm2Command(['start', appName]);
 	if (!result.success) {
 		console.log(`[pm2] Start output: ${result.output}`);
+		if (result.timedOut) console.log('[pm2] Start timed out');
 	}
 	return result.success;
 }
@@ -136,10 +164,10 @@ function pm2Start(appName) {
 /**
  * Get PM2 PID(s) for a given app. Returns [] if none.
  * @param {string} appName
- * @returns {number[]}
+ * @returns {Promise<number[]>}
  */
-function pm2Pids(appName) {
-	const result = pm2Command(['pid', appName]);
+async function pm2Pids(appName) {
+	const result = await pm2Command(['pid', appName]);
 	if (!result.success) return [];
 	const parts = result.output
 		.split(/[\s,]+/g)
@@ -159,13 +187,13 @@ function pm2Pids(appName) {
  * @param {string} appName
  */
 async function stopPm2AndWait(appName) {
-	const before = pm2Pids(appName);
+	const before = await pm2Pids(appName);
 	console.log('[updater] PM2 PIDs before stop:', before.length ? before.join(', ') : '(none)');
 
-	const stopped = pm2Stop(appName);
+	const stopped = await pm2Stop(appName);
 	if (!stopped) {
 		// If PM2 reports stop failure but there are no PIDs, it's likely already stopped.
-		const after = pm2Pids(appName);
+		const after = await pm2Pids(appName);
 		if (!after.length) {
 			console.log('[updater] PM2 stop returned non-zero but no PIDs found; treating as stopped');
 			return;
@@ -176,7 +204,7 @@ async function stopPm2AndWait(appName) {
 	// Wait up to 30 seconds for all PIDs to disappear.
 	const deadline = Date.now() + 30_000;
 	while (Date.now() < deadline) {
-		const pids = pm2Pids(appName);
+		const pids = await pm2Pids(appName);
 		if (!pids.length) return;
 		let anyAlive = false;
 		for (const pid of pids) {
@@ -187,14 +215,14 @@ async function stopPm2AndWait(appName) {
 	}
 
 	// Last resort: force kill any remaining PIDs we saw.
-	const still = pm2Pids(appName);
+	const still = await pm2Pids(appName);
 	if (still.length) {
 		console.log('[updater] Forcing kill of remaining PIDs:', still.join(', '));
 		for (const pid of still) killTree(pid);
 		await sleep(1500);
 	}
 
-	const final = pm2Pids(appName);
+	const final = await pm2Pids(appName);
 	if (final.length) throw new Error(`PM2 app did not stop in time (pids=${final.join(',')})`);
 }
 
@@ -469,12 +497,11 @@ async function stopServerDirect(pid) {
  * Start the server using PM2.
  * @param {string} appName
  */
-function startServerPM2(appName) {
+async function startServerPM2(appName) {
 	console.log('[updater] Starting server via PM2...');
 
-	if (!pm2Start(appName)) {
-		throw new Error('PM2 failed to start the app');
-	}
+	const ok = await pm2Start(appName);
+	if (!ok) throw new Error('PM2 failed to start the app');
 
 	console.log('[updater] Server started via PM2');
 }
@@ -615,7 +642,7 @@ async function main() {
 		// Try to restart the server even if swap failed
 		if (usePM2) {
 			console.log('[updater] Attempting to restart server after failed swap...');
-			pm2Start(pm2AppName);
+			await pm2Start(pm2AppName);
 		}
 
 		process.exit(3);
@@ -628,7 +655,7 @@ async function main() {
 	try {
 		if (usePM2) {
 			writeStatus('starting-server', { version, message: 'Starting server via PM2' });
-			startServerPM2(pm2AppName);
+			await startServerPM2(pm2AppName);
 		} else {
 			writeStatus('starting-server', { version, message: 'Starting server (direct mode)' });
 			startServerDirect(currentDir);
