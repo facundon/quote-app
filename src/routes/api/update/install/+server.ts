@@ -26,6 +26,10 @@ function ensureDir(dirPath: string): void {
 	fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.trim().length > 0;
+}
+
 export const POST: RequestHandler = async () => {
 	const manifestUrl = process.env.UPDATE_MANIFEST_URL;
 	if (!manifestUrl) {
@@ -113,12 +117,40 @@ export const POST: RequestHandler = async () => {
 			updaterArgs.push('--serverPid', String(process.pid));
 		}
 
+		if (!isNonEmptyString(nodeBin) || !fs.existsSync(nodeBin)) {
+			throw new Error(`Invalid Node binary (process.execPath): ${JSON.stringify(nodeBin)}`);
+		}
+		if (!isNonEmptyString(paths.installBase) || !fs.existsSync(paths.installBase)) {
+			throw new Error(`Invalid install base (cwd): ${JSON.stringify(paths.installBase)}`);
+		}
+
+		// On POSIX, `detached` is typically unnecessary for letting a child survive a parent exit,
+		// and can trigger platform-specific spawn failures in some environments.
 		const child = spawn(nodeBin, updaterArgs, {
 			cwd: paths.installBase,
-			detached: true,
+			detached: process.platform === 'win32',
 			stdio: 'ignore',
 			windowsHide: true
 		});
+
+		// Ensure we fail fast with a useful message if the process cannot be spawned.
+		await new Promise<void>((resolve, reject) => {
+			child.once('spawn', () => resolve());
+			child.once('error', (err) => {
+				const e = err as NodeJS.ErrnoException;
+				const details = {
+					code: e.code,
+					errno: e.errno,
+					syscall: e.syscall,
+					path: e.path,
+					nodeBin,
+					cwd: paths.installBase,
+					args: updaterArgs
+				};
+				reject(new Error(`Updater spawn failed: ${JSON.stringify(details)}`));
+			});
+		});
+
 		child.unref();
 
 		const body: UpdateInstallResponse = {

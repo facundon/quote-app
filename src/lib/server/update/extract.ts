@@ -16,8 +16,31 @@ function ensureDir(dirPath: string): void {
 
 function spawnAndWait(command: string, args: string[], cwd: string): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
-		const child = spawn(command, args, { cwd, stdio: 'inherit', windowsHide: true });
-		child.on('error', reject);
+		if (!cwd || !fs.existsSync(cwd)) {
+			reject(new Error(`Invalid cwd for spawn: ${JSON.stringify(cwd)}`));
+			return;
+		}
+
+		const child = spawn(command, args, {
+			cwd,
+			stdio: 'inherit',
+			windowsHide: true
+		});
+
+		child.on('error', (err) => {
+			const e = err as NodeJS.ErrnoException;
+			const details = {
+				command,
+				args,
+				cwd,
+				platform: process.platform,
+				code: e.code,
+				errno: e.errno,
+				syscall: e.syscall,
+				path: e.path
+			};
+			reject(new Error(`Failed to start command: ${JSON.stringify(details)}`));
+		});
 		child.on('exit', (code) => {
 			if (code === 0) resolve();
 			else reject(new Error(`${command} exited with code ${code ?? 'null'}`));

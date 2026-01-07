@@ -336,9 +336,12 @@ function startServerDirect(currentDir) {
 	const err = fs.openSync(logPath, 'a');
 
 	console.log('[updater] Starting new server (direct mode)...');
-	const child = spawn('node', ['build/index.js'], {
+	const nodeBin = process.execPath;
+	const child = spawn(nodeBin, ['build/index.js'], {
 		cwd: currentDir,
-		detached: true,
+		// On POSIX, `detached` is typically unnecessary; on Windows it's needed for the
+		// spawned server to survive once this updater exits.
+		detached: process.platform === 'win32',
 		stdio: ['ignore', out, err],
 		windowsHide: true
 	});
