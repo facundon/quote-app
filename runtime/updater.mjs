@@ -29,6 +29,70 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
 // =============================================================================
+// Early File Logging Setup
+// =============================================================================
+// On Windows with `start /b`, there's no console attached. We must set up
+// file logging IMMEDIATELY before any other code runs, otherwise errors
+// during startup are silently lost.
+
+/**
+ * Extract --logPath from argv without full parsing.
+ * @returns {string | null}
+ */
+function getLogPathFromArgv() {
+	const args = process.argv;
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] === '--logPath' && i + 1 < args.length) {
+			// Strip any surrounding quotes that might have been preserved
+			return args[i + 1].replace(/^["']|["']$/g, '');
+		}
+	}
+	return null;
+}
+
+/**
+ * Set up file-based logging immediately.
+ * @param {string} logPath
+ */
+function initFileLogging(logPath) {
+	/**
+	 * @param {string} prefix
+	 * @param {any[]} args
+	 */
+	const writeToLog = (prefix, args) => {
+		const timestamp = new Date().toISOString();
+		const message = args
+			.map((a) => {
+				if (typeof a === 'string') return a;
+				if (a instanceof Error) return `${a.message}\n${a.stack}`;
+				try {
+					return JSON.stringify(a);
+				} catch {
+					return String(a);
+				}
+			})
+			.join(' ');
+		const line = `[${timestamp}] ${prefix}${message}\n`;
+		try {
+			fs.appendFileSync(logPath, line, 'utf8');
+		} catch {
+			// Can't log the failure - no console available
+		}
+	};
+
+	console.log = (...args) => writeToLog('', args);
+	console.error = (...args) => writeToLog('[ERROR] ', args);
+}
+
+// Initialize logging immediately if --logPath is provided
+const earlyLogPath = getLogPathFromArgv();
+if (earlyLogPath) {
+	initFileLogging(earlyLogPath);
+	console.log('[updater] File logging initialized');
+	console.log('[updater] argv:', process.argv);
+}
+
+// =============================================================================
 // Configuration
 // =============================================================================
 
@@ -448,7 +512,6 @@ function cleanupZips(updatesDir) {
  * @property {string | null} pm2AppName - PM2 app name (if using PM2)
  * @property {number | null} serverPid - Server PID (if not using PM2)
  * @property {string | null} lockPath - Path to install lock file
- * @property {string | null} logPath - Path to log file
  */
 
 /**
@@ -474,36 +537,9 @@ function parseArgs() {
 		version: getArg('--version'),
 		pm2AppName: getArg('--pm2'),
 		serverPid: serverPidRaw ? Number(serverPidRaw) : null,
-		lockPath: getArg('--lockPath'),
-		logPath: getArg('--logPath')
+		lockPath: getArg('--lockPath')
 	};
 }
-
-/**
- * Set up file-based logging. This is necessary on Windows when using
- * `cmd.exe /c start /b` since stdio redirection doesn't work.
- * @param {string} logPath
- */
-function setupFileLogging(logPath) {
-	/**
-	 * @param {string} prefix
-	 * @param {any[]} args
-	 */
-	const writeToLog = (prefix, args) => {
-		const timestamp = new Date().toISOString();
-		const message = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
-		const line = `[${timestamp}] ${prefix}${message}\n`;
-		try {
-			fs.appendFileSync(logPath, line, 'utf8');
-		} catch {
-			// If we can't write to log, silently ignore - we can't use console here
-		}
-	};
-
-	console.log = (...args) => writeToLog('', args);
-	console.error = (...args) => writeToLog('[ERROR] ', args);
-}
-
 // =============================================================================
 // Server Management
 // =============================================================================
@@ -587,13 +623,10 @@ function startServerDirect(currentDir) {
 // =============================================================================
 
 async function main() {
-	const { base, version, pm2AppName, serverPid, lockPath, logPath } = parseArgs();
+	const { base, version, pm2AppName, serverPid, lockPath } = parseArgs();
 
-	// Set up file-based logging first, before any console output.
-	// This is required on Windows when spawned via `cmd.exe /c start /b`.
-	if (logPath) {
-		setupFileLogging(logPath);
-	}
+	// Note: File logging is already initialized at script start (before main).
+	// See initFileLogging() at the top of this file.
 
 	globalLockPath = lockPath;
 	globalStatusPath = base ? path.join(base, '.updates', 'status.json') : null;
