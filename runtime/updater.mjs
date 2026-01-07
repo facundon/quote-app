@@ -35,6 +35,20 @@ import { spawn, spawnSync } from 'node:child_process';
 const KEEP_PREVIOUS_VERSIONS = 2;
 
 // =============================================================================
+// Crash Handlers - Capture any unhandled errors before exit
+// =============================================================================
+
+process.on('uncaughtException', (err) => {
+	console.error('[updater] Uncaught exception:', err);
+	process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+	console.error('[updater] Unhandled rejection:', reason);
+	process.exit(1);
+});
+
+// =============================================================================
 // Utility Functions
 // =============================================================================
 

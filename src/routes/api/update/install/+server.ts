@@ -180,14 +180,31 @@ export const POST: RequestHandler = async () => {
 
 		console.log('[update/install]', requestId, 'updater log file', { updaterLogPath });
 
-		// On POSIX, `detached` is typically unnecessary for letting a child survive a parent exit,
-		// and can trigger platform-specific spawn failures in some environments.
-		const child = spawn(nodeBin, updaterArgs, {
+		// On Windows, we use `cmd.exe /c start /b` to spawn a truly independent process
+		// that survives when PM2 kills the server's process tree.
+		// On POSIX, a simple spawn with unref() is sufficient.
+		const isWindows = process.platform === 'win32';
+
+		let spawnCommand: string;
+		let spawnArgs: string[];
+
+		if (isWindows) {
+			// The empty string after /b is the window title (required by start command).
+			// This creates a process in a new console session, fully detached from the parent tree.
+			spawnCommand = 'cmd.exe';
+			spawnArgs = ['/c', 'start', '/b', '', nodeBin, ...updaterArgs];
+		} else {
+			spawnCommand = nodeBin;
+			spawnArgs = updaterArgs;
+		}
+
+		const child = spawn(spawnCommand, spawnArgs, {
 			cwd: paths.installBase,
-			detached: process.platform === 'win32',
 			// Write updater output to a file so we can debug detached failures in PM2/Windows services.
 			stdio: ['ignore', updaterLogFd, updaterLogFd],
-			windowsHide: true
+			windowsHide: true,
+			// On Windows with cmd.exe, shell mode helps with path resolution
+			shell: isWindows
 		});
 
 		// Ensure we fail fast with a useful message if the process cannot be spawned.
@@ -200,9 +217,9 @@ export const POST: RequestHandler = async () => {
 					errno: e.errno,
 					syscall: e.syscall,
 					path: e.path,
-					nodeBin,
+					spawnCommand,
+					spawnArgs,
 					cwd: paths.installBase,
-					args: updaterArgs,
 					updaterLogPath
 				};
 				console.error('[update/install]', requestId, 'updater spawn error', details);
