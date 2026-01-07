@@ -448,6 +448,7 @@ function cleanupZips(updatesDir) {
  * @property {string | null} pm2AppName - PM2 app name (if using PM2)
  * @property {number | null} serverPid - Server PID (if not using PM2)
  * @property {string | null} lockPath - Path to install lock file
+ * @property {string | null} logPath - Path to log file
  */
 
 /**
@@ -473,8 +474,34 @@ function parseArgs() {
 		version: getArg('--version'),
 		pm2AppName: getArg('--pm2'),
 		serverPid: serverPidRaw ? Number(serverPidRaw) : null,
-		lockPath: getArg('--lockPath')
+		lockPath: getArg('--lockPath'),
+		logPath: getArg('--logPath')
 	};
+}
+
+/**
+ * Set up file-based logging. This is necessary on Windows when using
+ * `cmd.exe /c start /b` since stdio redirection doesn't work.
+ * @param {string} logPath
+ */
+function setupFileLogging(logPath) {
+	/**
+	 * @param {string} prefix
+	 * @param {any[]} args
+	 */
+	const writeToLog = (prefix, args) => {
+		const timestamp = new Date().toISOString();
+		const message = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+		const line = `[${timestamp}] ${prefix}${message}\n`;
+		try {
+			fs.appendFileSync(logPath, line, 'utf8');
+		} catch {
+			// If we can't write to log, silently ignore - we can't use console here
+		}
+	};
+
+	console.log = (...args) => writeToLog('', args);
+	console.error = (...args) => writeToLog('[ERROR] ', args);
 }
 
 // =============================================================================
@@ -560,7 +587,14 @@ function startServerDirect(currentDir) {
 // =============================================================================
 
 async function main() {
-	const { base, version, pm2AppName, serverPid, lockPath } = parseArgs();
+	const { base, version, pm2AppName, serverPid, lockPath, logPath } = parseArgs();
+
+	// Set up file-based logging first, before any console output.
+	// This is required on Windows when spawned via `cmd.exe /c start /b`.
+	if (logPath) {
+		setupFileLogging(logPath);
+	}
+
 	globalLockPath = lockPath;
 	globalStatusPath = base ? path.join(base, '.updates', 'status.json') : null;
 	writeStatus('starting', { version, message: 'Updater started' });

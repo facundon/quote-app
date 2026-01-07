@@ -165,18 +165,21 @@ export const POST: RequestHandler = async () => {
 			throw new Error(`Invalid install base (cwd): ${JSON.stringify(paths.installBase)}`);
 		}
 
+		const updaterLogPath = path.join(
+			paths.updatesDir,
+			`updater-${version}-${requestId.replaceAll(':', '-')}.log`
+		);
+
+		// Pass logPath to updater so it handles its own logging.
+		// This is required on Windows where stdio redirection doesn't work with `start /b`.
+		updaterArgs.push('--logPath', updaterLogPath);
+
 		console.log('[update/install]', requestId, 'spawning updater', {
 			nodeBin,
 			updaterPath,
 			cwd: paths.installBase,
 			args: updaterArgs
 		});
-
-		const updaterLogPath = path.join(
-			paths.updatesDir,
-			`updater-${version}-${requestId.replaceAll(':', '-')}.log`
-		);
-		const updaterLogFd = fs.openSync(updaterLogPath, 'a');
 
 		console.log('[update/install]', requestId, 'updater log file', { updaterLogPath });
 
@@ -187,21 +190,28 @@ export const POST: RequestHandler = async () => {
 
 		let spawnCommand: string;
 		let spawnArgs: string[];
+		let spawnStdio: 'ignore' | ['ignore', number, number];
+		let updaterLogFd: number | null = null;
 
 		if (isWindows) {
 			// The empty string after /b is the window title (required by start command).
 			// This creates a process in a new console session, fully detached from the parent tree.
+			// Stdio must be 'ignore' since the started process won't inherit file descriptors.
+			// The updater handles its own logging via --logPath.
 			spawnCommand = 'cmd.exe';
 			spawnArgs = ['/c', 'start', '/b', '', nodeBin, ...updaterArgs];
+			spawnStdio = 'ignore';
 		} else {
+			// On POSIX, we can redirect stdio to a file descriptor
+			updaterLogFd = fs.openSync(updaterLogPath, 'a');
 			spawnCommand = nodeBin;
 			spawnArgs = updaterArgs;
+			spawnStdio = ['ignore', updaterLogFd, updaterLogFd];
 		}
 
 		const child = spawn(spawnCommand, spawnArgs, {
 			cwd: paths.installBase,
-			// Write updater output to a file so we can debug detached failures in PM2/Windows services.
-			stdio: ['ignore', updaterLogFd, updaterLogFd],
+			stdio: spawnStdio,
 			windowsHide: true,
 			// On Windows with cmd.exe, shell mode helps with path resolution
 			shell: isWindows
@@ -228,10 +238,14 @@ export const POST: RequestHandler = async () => {
 		});
 
 		child.unref();
-		try {
-			fs.closeSync(updaterLogFd);
-		} catch {
-			// ignore
+
+		// Close the file descriptor on POSIX (not used on Windows)
+		if (updaterLogFd !== null) {
+			try {
+				fs.closeSync(updaterLogFd);
+			} catch {
+				// ignore
+			}
 		}
 
 		const body: UpdateInstallResponse = {
