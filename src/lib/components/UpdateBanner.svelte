@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { UpdateCheckResponse, UpdateInstallResponse } from '$lib/update/types';
+	import type { UpdateCheckResponse, UpdateInstallResponse, UpdateStatus } from '$lib/update/types';
 	import { toastStore } from '$lib/stores/toast';
 
 	type NoteBlock = { kind: 'bullet'; text: string } | { kind: 'text'; text: string };
@@ -14,8 +14,17 @@
 	let showChanges = $state(true);
 	let lastCheckedAtMs = $state(0);
 
+	// Update status polling
+	let updateStatus = $state<UpdateStatus | null>(null);
+	let statusPollInterval = $state<number | null>(null);
+	let serverDown = $state(false);
+	let pollStartedAt = $state<number | null>(null);
+	let consecutiveFailures = $state(0);
+
 	const POLL_MS = 30 * 60 * 1000;
 	const FOCUS_COOLDOWN_MS = 10_000;
+	const STATUS_POLL_MS = 1_500;
+	const MAX_POLL_TIME_MS = 120_000; // 2 minutes max
 
 	// Non-reactive flag to prevent effect from re-running and removing listeners
 	let effectMounted = false;
@@ -119,14 +128,70 @@
 		};
 	});
 
-	function dismiss() {
-		dismissedVersion = check?.latestVersion ?? null;
-		showChanges = false;
+	function stopStatusPolling() {
+		if (statusPollInterval !== null) {
+			window.clearInterval(statusPollInterval);
+			statusPollInterval = null;
+		}
+	}
+
+	async function pollStatus() {
+		if (pollStartedAt && Date.now() - pollStartedAt > MAX_POLL_TIME_MS) {
+			stopStatusPolling();
+			toastStore.warning(
+				'La actualización está tardando más de lo esperado. Recarga la página manualmente.'
+			);
+			installing = false;
+			return;
+		}
+
+		try {
+			const res = await fetch('/api/update/status');
+
+			if (!res.ok) {
+				consecutiveFailures++;
+				return;
+			}
+
+			if (serverDown) serverDown = false;
+			consecutiveFailures = 0;
+
+			const status = (await res.json()) as UpdateStatus;
+			updateStatus = status;
+
+			if (status.step === 'done') {
+				stopStatusPolling();
+				toastStore.success('Actualización completada. Recargando…');
+				setTimeout(() => {
+					window.location.reload();
+				}, 1500);
+			} else if (status.step === 'error') {
+				stopStatusPolling();
+				toastStore.error(`Error en la actualización: ${status.error ?? 'Error desconocido'}`);
+				installing = false;
+			}
+		} catch {
+			consecutiveFailures++;
+			if (consecutiveFailures >= 2 && !serverDown) {
+				serverDown = true;
+			}
+		}
+	}
+
+	function startStatusPolling() {
+		stopStatusPolling();
+		pollStartedAt = Date.now();
+		consecutiveFailures = 0;
+		serverDown = false;
+		pollStatus();
+		statusPollInterval = window.setInterval(pollStatus, STATUS_POLL_MS);
 	}
 
 	async function install() {
 		if (installing) return;
 		installing = true;
+		updateStatus = null;
+
 		try {
 			const res = await fetch('/api/update/install', { method: 'POST' });
 			const data = (await res.json()) as UpdateInstallResponse;
@@ -139,13 +204,41 @@
 				}
 				throw new Error(data.message ?? data.error ?? 'No se pudo iniciar la instalación');
 			}
-			toastStore.success('Actualización iniciada. La app se reiniciará en breve.');
-			// The server will stop/restart — no polling needed.
-			// User can refresh manually once the server is back up.
+			toastStore.success('Actualización iniciada. Esperando…');
+			startStatusPolling();
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : 'Error desconocido';
 			toastStore.error(`Falló la actualización: ${msg}`);
 			installing = false;
+		}
+	}
+
+	function getStatusMessage(status: UpdateStatus | null, isServerDown: boolean): string {
+		if (isServerDown) {
+			return 'Reiniciando servidor…';
+		}
+
+		if (!status) return 'Iniciando…';
+
+		switch (status.step) {
+			case 'starting':
+				return 'Iniciando actualización…';
+			case 'stopping':
+				return 'Deteniendo servidor…';
+			case 'stopped':
+				return 'Servidor detenido';
+			case 'swapping':
+				return 'Actualizando archivos…';
+			case 'swapped':
+				return 'Archivos actualizados';
+			case 'starting-server':
+				return 'Iniciando nuevo servidor…';
+			case 'done':
+				return 'Actualización completada. Recargando…';
+			case 'error':
+				return status.error ?? 'Error';
+			default:
+				return status.message ?? 'Procesando…';
 		}
 	}
 
@@ -240,7 +333,24 @@
 						{/if}
 					</button>
 					{#if installing}
-						<div class="text-sm text-blue-800">La app se reiniciará en breve…</div>
+						<div class="flex items-center gap-2 text-sm text-blue-800">
+							<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+								<circle
+									class="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									stroke-width="4"
+								></circle>
+								<path
+									class="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								></path>
+							</svg>
+							<span>{getStatusMessage(updateStatus, serverDown)}</span>
+						</div>
 					{/if}
 				</div>
 			</div>

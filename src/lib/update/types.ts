@@ -26,3 +26,22 @@ export interface UpdateInstallResponse {
 	error?: string;
 	errorDetails?: string;
 }
+
+export type UpdateStep =
+	| 'idle'
+	| 'starting'
+	| 'stopping'
+	| 'stopped'
+	| 'swapping'
+	| 'swapped'
+	| 'starting-server'
+	| 'done'
+	| 'error';
+
+export interface UpdateStatus {
+	version: string | null;
+	step: UpdateStep;
+	updatedAt: string | null;
+	message?: string;
+	error?: string;
+}

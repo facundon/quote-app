@@ -29,7 +29,7 @@ import { spawn, spawnSync } from 'node:child_process';
 // Constants
 // =============================================================================
 
-const KEEP_PREVIOUS_VERSIONS = 2;
+const KEEP_PREVIOUS_VERSIONS = 1;
 const PM2_BIN = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
 const UPDATER_PROCESS_NAME = 'quote-app-updater';
 const PM2_COMMAND_TIMEOUT_MS = 30_000;
