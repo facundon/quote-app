@@ -6,10 +6,11 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
+import { updaterConfig } from '$lib/update/config';
 
 const PM2_BIN = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
-const UPDATER_PROCESS_NAME = 'quote-app-updater';
-const COMMAND_TIMEOUT_MS = 30_000;
+const { updaterProcessName: UPDATER_PROCESS_NAME, commandTimeoutMs: COMMAND_TIMEOUT_MS } =
+	updaterConfig.pm2;
 
 interface PM2CommandResult {
 	success: boolean;

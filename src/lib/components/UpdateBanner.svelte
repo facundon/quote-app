@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { UpdateCheckResponse, UpdateInstallResponse, UpdateStatus } from '$lib/update/types';
+	import { updaterConfig } from '$lib/update/config';
 	import { toastStore } from '$lib/stores/toast';
 
 	type NoteBlock = { kind: 'bullet'; text: string } | { kind: 'text'; text: string };
@@ -21,10 +22,13 @@
 	let pollStartedAt = $state<number | null>(null);
 	let consecutiveFailures = $state(0);
 
-	const POLL_MS = 30 * 60 * 1000;
-	const FOCUS_COOLDOWN_MS = 10_000;
-	const STATUS_POLL_MS = 1_500;
-	const MAX_POLL_TIME_MS = 120_000; // 2 minutes max
+	const {
+		checkIntervalMs: POLL_MS,
+		focusCooldownMs: FOCUS_COOLDOWN_MS,
+		statusPollMs: STATUS_POLL_MS,
+		maxPollTimeMs: MAX_POLL_TIME_MS,
+		reloadDelayMs: RELOAD_DELAY_MS
+	} = updaterConfig.client;
 
 	// Non-reactive flag to prevent effect from re-running and removing listeners
 	let effectMounted = false;
@@ -164,7 +168,7 @@
 				toastStore.success('Actualización completada. Recargando…');
 				setTimeout(() => {
 					window.location.reload();
-				}, 1500);
+				}, RELOAD_DELAY_MS);
 			} else if (status.step === 'error') {
 				stopStatusPolling();
 				toastStore.error(`Error en la actualización: ${status.error ?? 'Error desconocido'}`);

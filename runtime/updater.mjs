@@ -25,14 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
-// =============================================================================
-// Constants
-// =============================================================================
-
-const KEEP_PREVIOUS_VERSIONS = 1;
 const PM2_BIN = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
-const UPDATER_PROCESS_NAME = 'quote-app-updater';
-const PM2_COMMAND_TIMEOUT_MS = 30_000;
 
 // =============================================================================
 // Logging Setup
@@ -152,8 +145,9 @@ function cleanupAndExit(code) {
  */
 function selfCleanup() {
 	try {
+		const updaterName = ARGS?.updaterName ?? 'quote-app-updater';
 		console.log('[updater] Cleaning up updater PM2 process...');
-		spawnSync(PM2_BIN, ['delete', UPDATER_PROCESS_NAME], {
+		spawnSync(PM2_BIN, ['delete', updaterName], {
 			stdio: 'ignore',
 			shell: process.platform === 'win32',
 			windowsHide: true,
@@ -309,7 +303,7 @@ function pm2Command(args) {
 				// Ignore
 			}
 			finish({ success: false, output: `${stdout}${stderr}`.trim(), timedOut: true });
-		}, PM2_COMMAND_TIMEOUT_MS);
+		}, ARGS?.pm2Timeout ?? 30_000);
 
 		child.on('error', (e) => {
 			const msg = e?.message ?? String(e);
@@ -532,7 +526,7 @@ function readVersionFromDir(dir) {
  */
 function uniquePrevDir(base, version) {
 	const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-	return path.join(base, `previous-${version}-${stamp}`);
+	return path.join(base, `${ARGS?.dirPreviousPrefix ?? 'previous-'}${version}-${stamp}`);
 }
 
 // =============================================================================
@@ -548,7 +542,7 @@ function cleanupOldVersions(base, keepCount) {
 	const entries = fs.readdirSync(base, { withFileTypes: true });
 
 	const prevDirs = entries
-		.filter((e) => e.isDirectory() && e.name.startsWith('previous-'))
+		.filter((e) => e.isDirectory() && e.name.startsWith(ARGS?.dirPreviousPrefix ?? 'previous-'))
 		.map((e) => ({
 			name: e.name,
 			path: path.join(base, e.name),
@@ -607,10 +601,19 @@ function cleanupZips(updatesDir) {
  * @property {number | null} serverPid
  * @property {string | null} lockPath
  * @property {string | null} logPath
+ * @property {number} keepVersions
+ * @property {number} pm2Timeout
+ * @property {string} updaterName
+ * @property {string} dirUpdates
+ * @property {string} dirReleases
+ * @property {string} dirCurrent
+ * @property {string} dirPreviousPrefix
+ * @property {string} fileStatus
  */
 
 /**
  * Parse command line arguments.
+ * All config values are passed via CLI args from the install endpoint.
  * @returns {UpdaterArgs}
  */
 function parseArgs() {
@@ -625,6 +628,23 @@ function parseArgs() {
 		return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : null;
 	};
 
+	/**
+	 * @param {string} name
+	 * @param {string} fallback
+	 * @returns {string}
+	 */
+	const getArgRequired = (name, fallback) => getArg(name) ?? fallback;
+
+	/**
+	 * @param {string} name
+	 * @param {number} fallback
+	 * @returns {number}
+	 */
+	const getArgNumber = (name, fallback) => {
+		const raw = getArg(name);
+		return raw ? Number(raw) : fallback;
+	};
+
 	const serverPidRaw = getArg('--serverPid');
 
 	return {
@@ -633,7 +653,16 @@ function parseArgs() {
 		pm2AppName: getArg('--pm2'),
 		serverPid: serverPidRaw ? Number(serverPidRaw) : null,
 		lockPath: getArg('--lockPath'),
-		logPath: getArg('--logPath')
+		logPath: getArg('--logPath'),
+		// Config values from CLI args (fallbacks only for backward compatibility)
+		keepVersions: getArgNumber('--keepVersions', 2),
+		pm2Timeout: getArgNumber('--pm2Timeout', 30_000),
+		updaterName: getArgRequired('--updaterName', 'quote-app-updater'),
+		dirUpdates: getArgRequired('--dirUpdates', '.updates'),
+		dirReleases: getArgRequired('--dirReleases', 'releases'),
+		dirCurrent: getArgRequired('--dirCurrent', 'current'),
+		dirPreviousPrefix: getArgRequired('--dirPreviousPrefix', 'previous-'),
+		fileStatus: getArgRequired('--fileStatus', 'status.json')
 	};
 }
 
@@ -641,11 +670,15 @@ function parseArgs() {
 // Main Update Logic
 // =============================================================================
 
+/** @type {UpdaterArgs | null} */
+let ARGS = null;
+
 async function main() {
-	const { base, version, pm2AppName, serverPid, lockPath } = parseArgs();
+	ARGS = parseArgs();
+	const { base, version, pm2AppName, serverPid, lockPath } = ARGS;
 
 	globalLockPath = lockPath;
-	globalStatusPath = base ? path.join(base, '.updates', 'status.json') : null;
+	globalStatusPath = base ? path.join(base, ARGS.dirUpdates, ARGS.fileStatus) : null;
 
 	writeStatus('starting', { version, message: 'Updater started' });
 
@@ -675,9 +708,9 @@ async function main() {
 		cleanupAndExit(2);
 	}
 
-	const currentDir = path.join(base, 'current');
-	const releasesDir = path.join(base, 'releases');
-	const updatesDir = path.join(base, '.updates');
+	const currentDir = path.join(base, ARGS.dirCurrent);
+	const releasesDir = path.join(base, ARGS.dirReleases);
+	const updatesDir = path.join(base, ARGS.dirUpdates);
 	const nextDir = path.join(releasesDir, version);
 
 	console.log(`[updater] Starting update to version ${version}`);
@@ -798,7 +831,7 @@ async function main() {
 		console.log('[cleanup] Cleaning up old files...');
 		cleanupZips(updatesDir);
 		cleanupReleases(releasesDir);
-		cleanupOldVersions(base, KEEP_PREVIOUS_VERSIONS);
+		cleanupOldVersions(base, ARGS.keepVersions);
 		console.log('[cleanup] Cleanup complete');
 	} catch (e) {
 		// Non-fatal

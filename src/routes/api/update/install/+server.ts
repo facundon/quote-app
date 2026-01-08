@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { UpdateInstallResponse } from '$lib/update/types';
+import { updaterConfig } from '$lib/update/config';
 import { findAppRoot } from '$lib/server/update/appRoot';
 import { parseUpdateManifest } from '$lib/server/update/manifest';
 import { getUpdatePaths } from '$lib/server/update/paths';
@@ -75,7 +76,7 @@ export const POST: RequestHandler = async () => {
 
 	// This updater is designed for the `.../current/` atomic layout.
 	// In dev environments it can be disabled or ignored, but on Windows deployments it should be used.
-	if (path.basename(appRoot).toLowerCase() !== 'current') {
+	if (path.basename(appRoot).toLowerCase() !== updaterConfig.directories.current) {
 		const body: UpdateInstallResponse = {
 			started: false,
 			targetVersion: null,
@@ -91,7 +92,7 @@ export const POST: RequestHandler = async () => {
 	ensureDir(paths.releasesDir);
 
 	let lock: ReturnType<typeof acquireFileLock> | null = null;
-	const lockPath = path.join(paths.updatesDir, 'install.lock');
+	const lockPath = path.join(paths.updatesDir, updaterConfig.files.installLock);
 	try {
 		lock = acquireFileLock(lockPath);
 	} catch {
@@ -156,6 +157,16 @@ export const POST: RequestHandler = async () => {
 		);
 
 		updaterArgs.push('--logPath', updaterLogPath);
+
+		// Pass all config values as CLI args (updater.mjs can't import TypeScript)
+		updaterArgs.push('--keepVersions', String(updaterConfig.cleanup.keepPreviousVersions));
+		updaterArgs.push('--pm2Timeout', String(updaterConfig.pm2.commandTimeoutMs));
+		updaterArgs.push('--updaterName', updaterConfig.pm2.updaterProcessName);
+		updaterArgs.push('--dirUpdates', updaterConfig.directories.updates);
+		updaterArgs.push('--dirReleases', updaterConfig.directories.releases);
+		updaterArgs.push('--dirCurrent', updaterConfig.directories.current);
+		updaterArgs.push('--dirPreviousPrefix', updaterConfig.directories.previousPrefix);
+		updaterArgs.push('--fileStatus', updaterConfig.files.statusJson);
 
 		console.log('[update/install]', requestId, 'starting updater via PM2', {
 			updaterPath,

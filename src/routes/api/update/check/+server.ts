@@ -3,6 +3,7 @@ import { json } from '@sveltejs/kit';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { UpdateCheckResponse } from '$lib/update/types';
+import { updaterConfig } from '$lib/update/config';
 import { findAppRoot } from '$lib/server/update/appRoot';
 import { parseUpdateManifest, readCurrentVersion } from '$lib/server/update/manifest';
 import { compareVersions } from '$lib/server/update/semver';
@@ -13,13 +14,14 @@ interface CachedManifest {
 }
 
 const cache: CachedManifest = { manifest: null, fetchedAtMs: 0 };
-const CACHE_TTL_MS = 60_000;
 
 async function fetchManifest(
 	manifestUrl: string
 ): Promise<NonNullable<CachedManifest['manifest']>> {
 	const now = Date.now();
-	if (cache.manifest && now - cache.fetchedAtMs < CACHE_TTL_MS) return cache.manifest;
+	if (cache.manifest && now - cache.fetchedAtMs < updaterConfig.manifestCacheTtlMs) {
+		return cache.manifest;
+	}
 
 	const res = await fetch(manifestUrl, { headers: { Accept: 'application/json' } });
 	if (!res.ok) throw new Error(`Manifest fetch failed: ${res.status} ${res.statusText}`);

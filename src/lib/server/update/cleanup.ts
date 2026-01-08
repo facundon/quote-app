@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { updaterConfig } from '$lib/update/config';
 import { findAppRoot } from './appRoot';
 import { getUpdatePaths } from './paths';
 
-const KEEP_PREVIOUS_VERSIONS = 2;
-const MAX_ZIP_AGE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+const { keepPreviousVersions, maxZipAgeMs, startupDelayMs } = updaterConfig.cleanup;
+const { current, previousPrefix } = updaterConfig.directories;
 
 interface CleanupStats {
 	zipsRemoved: number;
@@ -44,8 +45,8 @@ function cleanupOldZips(updatesDir: string): number {
 		const filePath = path.join(updatesDir, name);
 		try {
 			const stat = fs.statSync(filePath);
-			// Remove zips older than MAX_ZIP_AGE_MS
-			if (now - stat.mtimeMs > MAX_ZIP_AGE_MS) {
+			// Remove zips older than maxZipAgeMs
+			if (now - stat.mtimeMs > maxZipAgeMs) {
 				if (safeUnlink(filePath)) {
 					removed++;
 				}
@@ -89,7 +90,7 @@ function cleanupOldPreviousVersions(installBase: string): number {
 
 	const entries = fs.readdirSync(installBase, { withFileTypes: true });
 	const prevDirs = entries
-		.filter((e) => e.isDirectory() && e.name.startsWith('previous-'))
+		.filter((e) => e.isDirectory() && e.name.startsWith(previousPrefix))
 		.map((e) => {
 			const dirPath = path.join(installBase, e.name);
 			let mtime = 0;
@@ -102,8 +103,8 @@ function cleanupOldPreviousVersions(installBase: string): number {
 		})
 		.sort((a, b) => b.mtime - a.mtime); // newest first
 
-	// Keep only KEEP_PREVIOUS_VERSIONS, delete the rest
-	const toDelete = prevDirs.slice(KEEP_PREVIOUS_VERSIONS);
+	// Keep only keepPreviousVersions, delete the rest
+	const toDelete = prevDirs.slice(keepPreviousVersions);
 	let removed = 0;
 
 	for (const dir of toDelete) {
@@ -119,7 +120,7 @@ export function runStartupCleanup(): CleanupStats {
 	const paths = getUpdatePaths(appRoot);
 
 	// Only run cleanup if we're in the expected atomic layout
-	if (path.basename(appRoot).toLowerCase() !== 'current') {
+	if (path.basename(appRoot).toLowerCase() !== current) {
 		return { zipsRemoved: 0, releasesRemoved: 0, previousVersionsRemoved: 0 };
 	}
 
@@ -151,5 +152,5 @@ export function runStartupCleanupOnce(): void {
 		} catch (e) {
 			console.error('[cleanup] Startup cleanup failed:', e);
 		}
-	}, 5000); // Wait 5 seconds after startup
+	}, startupDelayMs);
 }
