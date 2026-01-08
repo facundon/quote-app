@@ -3,7 +3,6 @@ import { json } from '@sveltejs/kit';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
 import type { UpdateInstallResponse } from '$lib/update/types';
 import { findAppRoot } from '$lib/server/update/appRoot';
 import { parseUpdateManifest } from '$lib/server/update/manifest';
@@ -12,6 +11,7 @@ import { acquireFileLock } from '$lib/server/update/locks';
 import { downloadToFile, sha256File } from '$lib/server/update/download';
 import { extractZip, npmCiProd } from '$lib/server/update/extract';
 import { prepareUpdaterScript } from '$lib/server/update/updaterScript';
+import { pm2StartUpdater } from '$lib/server/update/pm2';
 
 async function fetchManifest(manifestUrl: string) {
 	const res = await fetch(manifestUrl, { headers: { Accept: 'application/json' } });
@@ -24,10 +24,6 @@ async function fetchManifest(manifestUrl: string) {
 
 function ensureDir(dirPath: string): void {
 	fs.mkdirSync(dirPath, { recursive: true });
-}
-
-function isNonEmptyString(value: unknown): value is string {
-	return typeof value === 'string' && value.trim().length > 0;
 }
 
 function describeError(err: unknown): { message: string; details: string } {
@@ -131,17 +127,13 @@ export const POST: RequestHandler = async () => {
 		console.log('[update/install]', requestId, 'extracting', { extractTo });
 		await extractZip(zipPath, extractTo);
 
-		// Ensure deps are installed in the new release folder (build-only release).
 		console.log('[update/install]', requestId, 'installing deps (npm ci)', { cwd: extractTo });
 		await npmCiProd(extractTo);
 
 		const updaterPath = prepareUpdaterScript(appRoot, paths.updatesDir);
-		const nodeBin = process.execPath; // path to node running this server
 
-		// Build updater arguments based on whether PM2 is configured
 		const pm2AppName = process.env.PM2_APP_NAME;
 		const updaterArgs: string[] = [
-			updaterPath,
 			'--base',
 			paths.installBase,
 			'--version',
@@ -154,15 +146,8 @@ export const POST: RequestHandler = async () => {
 			// PM2 mode: use pm2 stop/start commands
 			updaterArgs.push('--pm2', pm2AppName);
 		} else {
-			// Direct mode: kill process by PID
+			// Direct mode: kill process by PID (fallback for non-PM2 setups)
 			updaterArgs.push('--serverPid', String(process.pid));
-		}
-
-		if (!isNonEmptyString(nodeBin) || !fs.existsSync(nodeBin)) {
-			throw new Error(`Invalid Node binary (process.execPath): ${JSON.stringify(nodeBin)}`);
-		}
-		if (!isNonEmptyString(paths.installBase) || !fs.existsSync(paths.installBase)) {
-			throw new Error(`Invalid install base (cwd): ${JSON.stringify(paths.installBase)}`);
 		}
 
 		const updaterLogPath = path.join(
@@ -170,91 +155,24 @@ export const POST: RequestHandler = async () => {
 			`updater-${version}-${requestId.replaceAll(':', '-')}.log`
 		);
 
-		// Pass logPath to updater so it handles its own logging.
-		// This is required on Windows where stdio redirection doesn't work with `start /b`.
 		updaterArgs.push('--logPath', updaterLogPath);
 
-		console.log('[update/install]', requestId, 'spawning updater', {
-			nodeBin,
+		console.log('[update/install]', requestId, 'starting updater via PM2', {
 			updaterPath,
 			cwd: paths.installBase,
-			args: updaterArgs
+			args: updaterArgs,
+			logPath: updaterLogPath
 		});
 
-		console.log('[update/install]', requestId, 'updater log file', { updaterLogPath });
-
-		// On Windows, we use `cmd.exe /c start /b` to spawn a truly independent process
-		// that survives when PM2 kills the server's process tree.
-		// On POSIX, a simple spawn with unref() is sufficient.
-		const isWindows = process.platform === 'win32';
-
-		let spawnCommand: string;
-		let spawnArgs: string[];
-		let spawnStdio: 'ignore' | ['ignore', number, number];
-		let updaterLogFd: number | null = null;
-
-		if (isWindows) {
-			// Build the full command string for `start` with proper quoting.
-			// The `start` command syntax: start "" /b "command" args...
-			// Paths with spaces MUST be quoted, otherwise Windows truncates at the space.
-			const quoteIfNeeded = (s: string): string => (s.includes(' ') ? `"${s}"` : s);
-			const quotedNodeBin = quoteIfNeeded(nodeBin);
-			const quotedUpdaterArgs = updaterArgs.map(quoteIfNeeded);
-
-			// Build the entire command as a single string to avoid spawn argument parsing issues.
-			// Format: start "" /b "node.exe" "updater.mjs" --arg1 value1 ...
-			const startCommand = `start "" /b ${quotedNodeBin} ${quotedUpdaterArgs.join(' ')}`;
-
-			// This creates a process in a new console session, fully detached from the parent tree.
-			// Stdio must be 'ignore' since the started process won't inherit file descriptors.
-			// The updater handles its own logging via --logPath.
-			spawnCommand = 'cmd.exe';
-			spawnArgs = ['/c', startCommand];
-			spawnStdio = 'ignore';
-		} else {
-			// On POSIX, we can redirect stdio to a file descriptor
-			updaterLogFd = fs.openSync(updaterLogPath, 'a');
-			spawnCommand = nodeBin;
-			spawnArgs = updaterArgs;
-			spawnStdio = ['ignore', updaterLogFd, updaterLogFd];
-		}
-
-		const child = spawn(spawnCommand, spawnArgs, {
+		// Start the updater as a separate PM2 process.
+		// This ensures complete process isolation - when `pm2 stop quote-app` runs,
+		// the updater continues to run because it's a separate PM2-managed process.
+		await pm2StartUpdater({
+			scriptPath: updaterPath,
 			cwd: paths.installBase,
-			stdio: spawnStdio,
-			windowsHide: true
+			args: updaterArgs,
+			logPath: updaterLogPath
 		});
-
-		// Ensure we fail fast with a useful message if the process cannot be spawned.
-		await new Promise<void>((resolve, reject) => {
-			child.once('spawn', () => resolve());
-			child.once('error', (err) => {
-				const e = err as NodeJS.ErrnoException;
-				const details = {
-					code: e.code,
-					errno: e.errno,
-					syscall: e.syscall,
-					path: e.path,
-					spawnCommand,
-					spawnArgs,
-					cwd: paths.installBase,
-					updaterLogPath
-				};
-				console.error('[update/install]', requestId, 'updater spawn error', details);
-				reject(new Error(`Updater spawn failed: ${JSON.stringify(details)}`));
-			});
-		});
-
-		child.unref();
-
-		// Close the file descriptor on POSIX (not used on Windows)
-		if (updaterLogFd !== null) {
-			try {
-				fs.closeSync(updaterLogFd);
-			} catch {
-				// ignore
-			}
-		}
 
 		const body: UpdateInstallResponse = {
 			started: true,
@@ -262,7 +180,6 @@ export const POST: RequestHandler = async () => {
 			message: 'Actualización descargada. Instalando… la app puede reiniciarse en breve.'
 		};
 
-		// Do not release the lock here; updater will remove it once swap completes.
 		return json(body);
 	} catch (e) {
 		lock.release();

@@ -1,27 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * Standalone updater script for atomic version swaps.
+ * Standalone Updater Script for Atomic Version Swaps
  *
- * This script runs OUTSIDE the SvelteKit build (in .updates/) so it can:
- * 1. Stop the running server (via PM2 or direct kill)
- * 2. Swap the current/ folder with the new release
- * 3. Start the new server (via PM2 or direct spawn)
+ * This script runs as an INDEPENDENT PM2 process (named `quote-app-updater`)
+ * so it can safely stop the main app, swap folders, and restart it.
  *
  * Usage:
- *   node updater.mjs --base <path> --version <version> --pm2 <appName> [--lockPath <path>]
- *   node updater.mjs --base <path> --version <version> --serverPid <pid> [--lockPath <path>]
+ *   node updater.mjs --base <path> --version <version> --pm2 <appName> [--lockPath <path>] [--logPath <path>]
+ *   node updater.mjs --base <path> --version <version> --serverPid <pid> [--lockPath <path>] [--logPath <path>]
  *
  * PM2 Mode (recommended):
  *   Uses `pm2 stop` and `pm2 start` to manage the server process.
- *   Requires PM2 to be installed globally and the app to be registered with PM2.
+ *   The updater itself runs as a separate PM2 process for complete isolation.
  *
  * Direct Mode (legacy):
  *   Kills the server process directly and spawns a new one.
  *   Used when PM2 is not available.
  *
- * This file is shipped with each release and copied to .updates/ before execution.
- * It must remain dependency-free (only Node.js built-ins).
+ * This file must remain dependency-free (only Node.js built-ins).
  */
 
 import fs from 'node:fs';
@@ -29,29 +26,20 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
 // =============================================================================
-// Early File Logging Setup
+// Constants
 // =============================================================================
-// On Windows with `start /b`, there's no console attached. We must set up
-// file logging IMMEDIATELY before any other code runs, otherwise errors
-// during startup are silently lost.
+
+const KEEP_PREVIOUS_VERSIONS = 2;
+const PM2_BIN = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+const UPDATER_PROCESS_NAME = 'quote-app-updater';
+const PM2_COMMAND_TIMEOUT_MS = 30_000;
+
+// =============================================================================
+// Logging Setup
+// =============================================================================
 
 /**
- * Extract --logPath from argv without full parsing.
- * @returns {string | null}
- */
-function getLogPathFromArgv() {
-	const args = process.argv;
-	for (let i = 0; i < args.length; i++) {
-		if (args[i] === '--logPath' && i + 1 < args.length) {
-			// Strip any surrounding quotes that might have been preserved
-			return args[i + 1].replace(/^["']|["']$/g, '');
-		}
-	}
-	return null;
-}
-
-/**
- * Set up file-based logging immediately.
+ * Initialize file-based logging.
  * @param {string} logPath
  */
 function initFileLogging(logPath) {
@@ -72,16 +60,32 @@ function initFileLogging(logPath) {
 				}
 			})
 			.join(' ');
+
 		const line = `[${timestamp}] ${prefix}${message}\n`;
+
 		try {
 			fs.appendFileSync(logPath, line, 'utf8');
 		} catch {
-			// Can't log the failure - no console available
+			// Cannot log failure - no console available
 		}
 	};
 
 	console.log = (...args) => writeToLog('', args);
 	console.error = (...args) => writeToLog('[ERROR] ', args);
+}
+
+/**
+ * Extract --logPath from argv for early initialization.
+ * @returns {string | null}
+ */
+function getLogPathFromArgv() {
+	const args = process.argv;
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] === '--logPath' && i + 1 < args.length) {
+			return args[i + 1].replace(/^["']|["']$/g, '');
+		}
+	}
+	return null;
 }
 
 // Initialize logging immediately if --logPath is provided
@@ -93,24 +97,72 @@ if (earlyLogPath) {
 }
 
 // =============================================================================
-// Configuration
-// =============================================================================
-
-const KEEP_PREVIOUS_VERSIONS = 2;
-
-// =============================================================================
-// Crash Handlers - Capture any unhandled errors before exit
+// Error Handlers
 // =============================================================================
 
 process.on('uncaughtException', (err) => {
 	console.error('[updater] Uncaught exception:', err);
-	process.exit(1);
+	cleanupAndExit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
 	console.error('[updater] Unhandled rejection:', reason);
-	process.exit(1);
+	cleanupAndExit(1);
 });
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+	process.on(sig, () => {
+		console.error(`[updater] Received ${sig}, exiting...`);
+		cleanupAndExit(1);
+	});
+}
+
+// =============================================================================
+// State
+// =============================================================================
+
+/** @type {string | null} */
+let globalLockPath = null;
+
+/** @type {string | null} */
+let globalStatusPath = null;
+
+// =============================================================================
+// Cleanup & Exit
+// =============================================================================
+
+/**
+ * Cleanup resources and exit.
+ * @param {number} code
+ */
+function cleanupAndExit(code) {
+	// Release the install lock
+	if (globalLockPath) {
+		safeUnlink(globalLockPath);
+	}
+
+	// Delete this updater process from PM2
+	selfCleanup();
+
+	process.exit(code);
+}
+
+/**
+ * Delete the updater PM2 process (self-cleanup).
+ */
+function selfCleanup() {
+	try {
+		console.log('[updater] Cleaning up updater PM2 process...');
+		spawnSync(PM2_BIN, ['delete', UPDATER_PROCESS_NAME], {
+			stdio: 'ignore',
+			shell: process.platform === 'win32',
+			windowsHide: true,
+			timeout: 10_000
+		});
+	} catch {
+		// Ignore errors - process may not exist or PM2 unavailable
+	}
+}
 
 // =============================================================================
 // Utility Functions
@@ -125,7 +177,7 @@ function sleep(ms) {
 }
 
 /**
- * Check if a process is still alive.
+ * Check if a process is alive.
  * @param {number} pid
  * @returns {boolean}
  */
@@ -139,233 +191,49 @@ function isAlive(pid) {
 }
 
 /**
- * Kill a process and its children (direct mode only).
- * @param {number} pid
+ * Safely remove a file.
+ * @param {string} filePath
  */
-function killTree(pid) {
-	if (process.platform === 'win32') {
-		// /T: kill child processes, /F: force
-		spawn('cmd.exe', ['/c', 'taskkill', '/PID', String(pid), '/T', '/F'], {
-			stdio: 'ignore',
-			windowsHide: true
-		});
-	} else {
-		try {
-			process.kill(pid, 'SIGTERM');
-		} catch {
-			// Process may already be dead
-		}
-	}
-}
-
-/**
- * Execute a PM2 command with a hard timeout (spawnSync can hang in some Windows setups).
- * @param {string[]} args - PM2 command arguments
- * @returns {Promise<{ success: boolean, output: string, timedOut: boolean }>}
- */
-function pm2Command(args) {
-	const pm2Bin = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
-	return new Promise((resolve) => {
-		let resolved = false;
-		const finish = (
-			/** @type {{ success: boolean, output: string, timedOut: boolean }} */ result
-		) => {
-			if (resolved) return;
-			resolved = true;
-			clearTimeout(timer);
-			resolve(result);
-		};
-
-		const child = spawn(pm2Bin, args, {
-			stdio: ['ignore', 'pipe', 'pipe'],
-			shell: process.platform === 'win32',
-			windowsHide: true
-		});
-
-		let out = '';
-		let err = '';
-		child.stdout?.on('data', (d) => (out += String(d)));
-		child.stderr?.on('data', (d) => (err += String(d)));
-
-		const timer = setTimeout(() => {
-			console.log(`[pm2] Command timed out: pm2 ${args.join(' ')}`);
-			try {
-				if (process.platform === 'win32' && child.pid) {
-					// Ensure the whole tree is killed on Windows.
-					spawnSync('cmd.exe', ['/c', 'taskkill', '/PID', String(child.pid), '/T', '/F'], {
-						stdio: 'ignore',
-						windowsHide: true
-					});
-				} else {
-					child.kill('SIGKILL');
-				}
-			} catch {
-				// ignore
-			}
-			// Resolve immediately on timeout — don't wait for 'close' event
-			finish({ success: false, output: `${out}${err}`.trim(), timedOut: true });
-		}, 30_000);
-
-		child.on('error', (e) => {
-			const msg = e && e.message ? e.message : String(e);
-			finish({ success: false, output: `${msg}\n${out}${err}`.trim(), timedOut: false });
-		});
-
-		child.on('close', (code) => {
-			finish({ success: code === 0, output: `${out}${err}`.trim(), timedOut: false });
-		});
-	});
-}
-
-/**
- * Stop an app managed by PM2.
- * @param {string} appName
- * @returns {Promise<boolean>}
- */
-async function pm2Stop(appName) {
-	console.log(`[pm2] Stopping app: ${appName}`);
-	const result = await pm2Command(['stop', appName]);
-	if (!result.success) {
-		console.log(`[pm2] Stop output: ${result.output}`);
-		if (result.timedOut) console.log('[pm2] Stop timed out');
-	}
-	return result.success;
-}
-
-/**
- * Start/restart an app managed by PM2.
- * @param {string} appName
- * @returns {Promise<boolean>}
- */
-async function pm2Start(appName) {
-	console.log(`[pm2] Starting app: ${appName}`);
-	const result = await pm2Command(['start', appName]);
-	if (!result.success) {
-		console.log(`[pm2] Start output: ${result.output}`);
-		if (result.timedOut) console.log('[pm2] Start timed out');
-	}
-	return result.success;
-}
-
-/**
- * Get PM2 PID(s) for a given app. Returns [] if none.
- * @param {string} appName
- * @returns {Promise<number[]>}
- */
-async function pm2Pids(appName) {
-	const result = await pm2Command(['pid', appName]);
-	if (!result.success) return [];
-	const parts = result.output
-		.split(/[\s,]+/g)
-		.map((s) => s.trim())
-		.filter(Boolean);
-	const pids = [];
-	for (const p of parts) {
-		const n = Number(p);
-		if (Number.isFinite(n) && n > 0) pids.push(n);
-	}
-	return pids;
-}
-
-/**
- * Attempt to stop a PM2 app and ensure its process is actually gone.
- * On Windows, this prevents rename() EBUSY by ensuring all handles are released.
- * @param {string} appName
- */
-async function stopPm2AndWait(appName) {
-	const before = await pm2Pids(appName);
-	console.log('[updater] PM2 PIDs before stop:', before.length ? before.join(', ') : '(none)');
-
-	const stopped = await pm2Stop(appName);
-	if (!stopped) {
-		// If PM2 reports stop failure but there are no PIDs, it's likely already stopped.
-		const after = await pm2Pids(appName);
-		if (!after.length) {
-			console.log('[updater] PM2 stop returned non-zero but no PIDs found; treating as stopped');
-			return;
-		}
-		console.log('[updater] PM2 stop returned non-zero; waiting for PIDs to exit...');
-	}
-
-	// Wait up to 30 seconds for all PIDs to disappear.
-	const deadline = Date.now() + 30_000;
-	while (Date.now() < deadline) {
-		const pids = await pm2Pids(appName);
-		if (!pids.length) return;
-		let anyAlive = false;
-		for (const pid of pids) {
-			if (isAlive(pid)) anyAlive = true;
-		}
-		if (!anyAlive) return;
-		await sleep(500);
-	}
-
-	// Last resort: force kill any remaining PIDs we saw.
-	const still = await pm2Pids(appName);
-	if (still.length) {
-		console.log('[updater] Forcing kill of remaining PIDs:', still.join(', '));
-		for (const pid of still) killTree(pid);
-		await sleep(1500);
-	}
-
-	const final = await pm2Pids(appName);
-	if (final.length) throw new Error(`PM2 app did not stop in time (pids=${final.join(',')})`);
-}
-
-/**
- * @param {string} dir
- */
-function ensureDir(dir) {
-	fs.mkdirSync(dir, { recursive: true });
-}
-
-/**
- * @param {string} dir
- */
-function safeRmdir(dir) {
+function safeUnlink(filePath) {
 	try {
-		fs.rmSync(dir, { recursive: true, force: true });
+		fs.unlinkSync(filePath);
 	} catch {
-		// Ignore errors
+		// Ignore
 	}
 }
 
 /**
- * @param {string} file
+ * Safely remove a directory.
+ * @param {string} dirPath
  */
-function safeUnlink(file) {
+function safeRmdir(dirPath) {
 	try {
-		fs.unlinkSync(file);
+		fs.rmSync(dirPath, { recursive: true, force: true });
 	} catch {
-		// Ignore errors
+		// Ignore
 	}
 }
 
-/** @type {string | null} */
-let globalLockPath = null;
-/** @type {string | null} */
-let globalStatusPath = null;
-
-// Always attempt to release the install lock on exit (success or failure),
-// otherwise a failed update can block all future updates.
-process.on('exit', () => {
-	if (globalLockPath) safeUnlink(globalLockPath);
-});
-
-for (const sig of ['SIGINT', 'SIGTERM']) {
-	process.on(sig, () => {
-		console.error(`[updater] Received ${sig}, exiting...`);
-		process.exit(1);
-	});
+/**
+ * Ensure a directory exists.
+ * @param {string} dirPath
+ */
+function ensureDir(dirPath) {
+	fs.mkdirSync(dirPath, { recursive: true });
 }
 
+// =============================================================================
+// Status File
+// =============================================================================
+
 /**
- * Best-effort status writer for external observers (UI/logs).
+ * Write status for external observers.
  * @param {string} step
  * @param {object} extra
  */
 function writeStatus(step, extra = {}) {
 	if (!globalStatusPath) return;
+
 	try {
 		fs.writeFileSync(
 			globalStatusPath,
@@ -387,24 +255,246 @@ function writeStatus(step, extra = {}) {
 	}
 }
 
+// =============================================================================
+// PM2 Operations
+// =============================================================================
+
 /**
- * Retry fs.renameSync to deal with transient Windows locks (EBUSY/EPERM/EACCES).
+ * @typedef {Object} PM2Result
+ * @property {boolean} success
+ * @property {string} output
+ * @property {boolean} timedOut
+ */
+
+/**
+ * Execute a PM2 command with timeout.
+ * @param {string[]} args
+ * @returns {Promise<PM2Result>}
+ */
+function pm2Command(args) {
+	return new Promise((resolve) => {
+		let resolved = false;
+
+		/** @param {PM2Result} result */
+		const finish = (result) => {
+			if (resolved) return;
+			resolved = true;
+			clearTimeout(timer);
+			resolve(result);
+		};
+
+		const child = spawn(PM2_BIN, args, {
+			stdio: ['ignore', 'pipe', 'pipe'],
+			shell: process.platform === 'win32',
+			windowsHide: true
+		});
+
+		let stdout = '';
+		let stderr = '';
+		child.stdout?.on('data', (d) => (stdout += String(d)));
+		child.stderr?.on('data', (d) => (stderr += String(d)));
+
+		const timer = setTimeout(() => {
+			console.log(`[pm2] Command timed out: pm2 ${args.join(' ')}`);
+			try {
+				if (process.platform === 'win32' && child.pid) {
+					spawnSync('cmd.exe', ['/c', 'taskkill', '/PID', String(child.pid), '/T', '/F'], {
+						stdio: 'ignore',
+						windowsHide: true
+					});
+				} else {
+					child.kill('SIGKILL');
+				}
+			} catch {
+				// Ignore
+			}
+			finish({ success: false, output: `${stdout}${stderr}`.trim(), timedOut: true });
+		}, PM2_COMMAND_TIMEOUT_MS);
+
+		child.on('error', (e) => {
+			const msg = e?.message ?? String(e);
+			finish({ success: false, output: `${msg}\n${stdout}${stderr}`.trim(), timedOut: false });
+		});
+
+		child.on('close', (code) => {
+			finish({ success: code === 0, output: `${stdout}${stderr}`.trim(), timedOut: false });
+		});
+	});
+}
+
+/**
+ * Get PM2 PIDs for an app.
+ * @param {string} appName
+ * @returns {Promise<number[]>}
+ */
+async function pm2Pids(appName) {
+	const result = await pm2Command(['pid', appName]);
+	if (!result.success) return [];
+
+	return result.output
+		.split(/[\s,]+/)
+		.map((s) => s.trim())
+		.filter(Boolean)
+		.map(Number)
+		.filter((n) => Number.isFinite(n) && n > 0);
+}
+
+/**
+ * Stop a PM2 app.
+ * @param {string} appName
+ * @returns {Promise<boolean>}
+ */
+async function pm2Stop(appName) {
+	console.log(`[pm2] Stopping app: ${appName}`);
+	const result = await pm2Command(['stop', appName]);
+
+	if (!result.success) {
+		console.log(`[pm2] Stop output: ${result.output}`);
+		if (result.timedOut) console.log('[pm2] Stop timed out');
+	}
+
+	return result.success;
+}
+
+/**
+ * Start a PM2 app.
+ * @param {string} appName
+ * @returns {Promise<boolean>}
+ */
+async function pm2Start(appName) {
+	console.log(`[pm2] Starting app: ${appName}`);
+	const result = await pm2Command(['start', appName]);
+
+	if (!result.success) {
+		console.log(`[pm2] Start output: ${result.output}`);
+		if (result.timedOut) console.log('[pm2] Start timed out');
+	}
+
+	return result.success;
+}
+
+/**
+ * Stop PM2 app and wait for process to fully exit.
+ * @param {string} appName
+ */
+async function stopPm2AndWait(appName) {
+	const beforePids = await pm2Pids(appName);
+	console.log(
+		'[updater] PM2 PIDs before stop:',
+		beforePids.length ? beforePids.join(', ') : '(none)'
+	);
+
+	const stopped = await pm2Stop(appName);
+
+	if (!stopped) {
+		const afterPids = await pm2Pids(appName);
+		if (!afterPids.length) {
+			console.log('[updater] PM2 stop returned non-zero but no PIDs found; treating as stopped');
+			return;
+		}
+		console.log('[updater] PM2 stop returned non-zero; waiting for PIDs to exit...');
+	}
+
+	// Wait for all PIDs to exit (up to 30s)
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const pids = await pm2Pids(appName);
+		if (!pids.length) return;
+
+		const anyAlive = pids.some((pid) => isAlive(pid));
+		if (!anyAlive) return;
+
+		await sleep(500);
+	}
+
+	// Force kill remaining PIDs
+	const remaining = await pm2Pids(appName);
+	if (remaining.length) {
+		console.log('[updater] Forcing kill of remaining PIDs:', remaining.join(', '));
+		for (const pid of remaining) {
+			killProcess(pid);
+		}
+		await sleep(1500);
+	}
+
+	const finalPids = await pm2Pids(appName);
+	if (finalPids.length) {
+		throw new Error(`PM2 app did not stop in time (pids=${finalPids.join(',')})`);
+	}
+}
+
+// =============================================================================
+// Process Management (Direct Mode)
+// =============================================================================
+
+/**
+ * Kill a process tree.
+ * @param {number} pid
+ */
+function killProcess(pid) {
+	if (process.platform === 'win32') {
+		spawn('cmd.exe', ['/c', 'taskkill', '/PID', String(pid), '/T', '/F'], {
+			stdio: 'ignore',
+			windowsHide: true
+		});
+	} else {
+		try {
+			process.kill(pid, 'SIGTERM');
+		} catch {
+			// Process may be gone
+		}
+	}
+}
+
+/**
+ * Start server directly (non-PM2 mode).
+ * @param {string} currentDir
+ */
+function startServerDirect(currentDir) {
+	const logsDir = path.join(currentDir, 'logs');
+	ensureDir(logsDir);
+
+	const logPath = path.join(logsDir, 'server.log');
+	const out = fs.openSync(logPath, 'a');
+	const err = fs.openSync(logPath, 'a');
+
+	console.log('[updater] Starting new server (direct mode)...');
+
+	const child = spawn(process.execPath, ['build/index.js'], {
+		cwd: currentDir,
+		detached: process.platform === 'win32',
+		stdio: ['ignore', out, err],
+		windowsHide: true
+	});
+
+	child.unref();
+	console.log(`[updater] Server started (PID: ${child.pid})`);
+}
+
+// =============================================================================
+// File Operations
+// =============================================================================
+
+/**
+ * Rename with retry for transient Windows locks.
  * @param {string} from
  * @param {string} to
  * @param {string} label
  */
 async function renameWithRetry(from, to, label) {
 	const maxAttempts = 120; // ~60s at 500ms
+
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		try {
 			fs.renameSync(from, to);
 			return;
 		} catch (e) {
 			const err = /** @type {any} */ (e);
-			const code = err && err.code;
+			const code = err?.code;
+
 			if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') {
 				console.log(
-					`[updater] rename busy (${label}) attempt ${attempt}/${maxAttempts} code=${code}`
+					`[updater] Rename busy (${label}) attempt ${attempt}/${maxAttempts} code=${code}`
 				);
 				await sleep(500);
 				continue;
@@ -412,17 +502,20 @@ async function renameWithRetry(from, to, label) {
 			throw e;
 		}
 	}
-	throw new Error(`rename failed after retries (${label}): ${from} -> ${to}`);
+
+	throw new Error(`Rename failed after retries (${label}): ${from} -> ${to}`);
 }
 
 /**
- * @param {string} currentDir
+ * Read version from package.json in a directory.
+ * @param {string} dir
  * @returns {string | null}
  */
-function readCurrentVersionFromDir(currentDir) {
+function readVersionFromDir(dir) {
 	try {
-		const pkgPath = path.join(currentDir, 'package.json');
+		const pkgPath = path.join(dir, 'package.json');
 		if (!fs.existsSync(pkgPath)) return null;
+
 		const raw = fs.readFileSync(pkgPath, 'utf8');
 		const parsed = JSON.parse(raw);
 		return typeof parsed?.version === 'string' ? parsed.version : null;
@@ -432,9 +525,9 @@ function readCurrentVersionFromDir(currentDir) {
 }
 
 /**
- * Generate a unique directory name for the previous version backup.
- * @param {string} base - Install base directory
- * @param {string} version - Current version being replaced
+ * Generate unique backup directory name.
+ * @param {string} base
+ * @param {string} version
  * @returns {string}
  */
 function uniquePrevDir(base, version) {
@@ -447,12 +540,13 @@ function uniquePrevDir(base, version) {
 // =============================================================================
 
 /**
- * Remove old previous-* directories, keeping only the most recent ones.
- * @param {string} base - Install base directory
- * @param {number} keepCount - Number of previous versions to keep
+ * Remove old previous-* directories.
+ * @param {string} base
+ * @param {number} keepCount
  */
 function cleanupOldVersions(base, keepCount) {
 	const entries = fs.readdirSync(base, { withFileTypes: true });
+
 	const prevDirs = entries
 		.filter((e) => e.isDirectory() && e.name.startsWith('previous-'))
 		.map((e) => ({
@@ -470,7 +564,7 @@ function cleanupOldVersions(base, keepCount) {
 }
 
 /**
- * Remove all version folders from the releases staging area.
+ * Remove staged releases.
  * @param {string} releasesDir
  */
 function cleanupReleases(releasesDir) {
@@ -486,7 +580,7 @@ function cleanupReleases(releasesDir) {
 }
 
 /**
- * Remove all downloaded zip files from .updates/
+ * Remove downloaded zip files.
  * @param {string} updatesDir
  */
 function cleanupZips(updatesDir) {
@@ -507,11 +601,12 @@ function cleanupZips(updatesDir) {
 
 /**
  * @typedef {Object} UpdaterArgs
- * @property {string | null} base - Install base directory
- * @property {string | null} version - Target version
- * @property {string | null} pm2AppName - PM2 app name (if using PM2)
- * @property {number | null} serverPid - Server PID (if not using PM2)
- * @property {string | null} lockPath - Path to install lock file
+ * @property {string | null} base
+ * @property {string | null} version
+ * @property {string | null} pm2AppName
+ * @property {number | null} serverPid
+ * @property {string | null} lockPath
+ * @property {string | null} logPath
  */
 
 /**
@@ -537,85 +632,9 @@ function parseArgs() {
 		version: getArg('--version'),
 		pm2AppName: getArg('--pm2'),
 		serverPid: serverPidRaw ? Number(serverPidRaw) : null,
-		lockPath: getArg('--lockPath')
+		lockPath: getArg('--lockPath'),
+		logPath: getArg('--logPath')
 	};
-}
-// =============================================================================
-// Server Management
-// =============================================================================
-
-/**
- * Stop the server using PM2.
- * @param {string} appName
- */
-async function stopServerPM2(appName) {
-	console.log('[updater] Stopping server via PM2...');
-	await stopPm2AndWait(appName);
-
-	// Give PM2 a moment to fully stop the process
-	await sleep(2000);
-	console.log('[updater] Server stopped');
-}
-
-/**
- * Stop the server by killing the process directly.
- * @param {number} pid
- */
-async function stopServerDirect(pid) {
-	console.log('[updater] Stopping server (direct mode)...');
-	killTree(pid);
-
-	// Wait for server to exit (up to 30 seconds)
-	for (let i = 0; i < 120; i++) {
-		if (!isAlive(pid)) break;
-		await sleep(250);
-	}
-
-	if (isAlive(pid)) {
-		throw new Error('Server did not stop in time');
-	}
-
-	console.log('[updater] Server stopped');
-}
-
-/**
- * Start the server using PM2.
- * @param {string} appName
- */
-async function startServerPM2(appName) {
-	console.log('[updater] Starting server via PM2...');
-
-	const ok = await pm2Start(appName);
-	if (!ok) throw new Error('PM2 failed to start the app');
-
-	console.log('[updater] Server started via PM2');
-}
-
-/**
- * Start the server by spawning a new process directly.
- * @param {string} currentDir
- */
-function startServerDirect(currentDir) {
-	const logsDir = path.join(currentDir, 'logs');
-	ensureDir(logsDir);
-
-	const logPath = path.join(logsDir, 'server.log');
-	const out = fs.openSync(logPath, 'a');
-	const err = fs.openSync(logPath, 'a');
-
-	console.log('[updater] Starting new server (direct mode)...');
-	const nodeBin = process.execPath;
-	const child = spawn(nodeBin, ['build/index.js'], {
-		cwd: currentDir,
-		// On POSIX, `detached` is typically unnecessary; on Windows it's needed for the
-		// spawned server to survive once this updater exits.
-		detached: process.platform === 'win32',
-		stdio: ['ignore', out, err],
-		windowsHide: true
-	});
-	child.unref();
-
-	console.log(`[updater] New server started (PID: ${child.pid})`);
 }
 
 // =============================================================================
@@ -625,14 +644,12 @@ function startServerDirect(currentDir) {
 async function main() {
 	const { base, version, pm2AppName, serverPid, lockPath } = parseArgs();
 
-	// Note: File logging is already initialized at script start (before main).
-	// See initFileLogging() at the top of this file.
-
 	globalLockPath = lockPath;
 	globalStatusPath = base ? path.join(base, '.updates', 'status.json') : null;
+
 	writeStatus('starting', { version, message: 'Updater started' });
 
-	// Validate required arguments
+	// Validate arguments
 	if (!base || !version) {
 		console.error('Usage:');
 		console.error(
@@ -643,19 +660,19 @@ async function main() {
 		);
 		console.error('');
 		console.error('Missing required arguments: --base --version');
-		process.exit(2);
+		cleanupAndExit(2);
 	}
 
 	const usePM2 = !!pm2AppName;
 
 	if (!usePM2 && !serverPid) {
 		console.error('Either --pm2 <appName> or --serverPid <pid> is required');
-		process.exit(2);
+		cleanupAndExit(2);
 	}
 
 	if (!usePM2 && Number.isNaN(serverPid)) {
 		console.error('Invalid --serverPid: must be a number');
-		process.exit(2);
+		cleanupAndExit(2);
 	}
 
 	const currentDir = path.join(base, 'current');
@@ -671,33 +688,49 @@ async function main() {
 	// Step 1: Stop the running server
 	// -------------------------------------------------------------------------
 
-	// Give HTTP response time to flush before stopping the server
+	// Small delay to let HTTP response flush
 	await sleep(750);
 
 	try {
 		if (usePM2) {
 			writeStatus('stopping', { version, message: 'Stopping server via PM2' });
-			await stopServerPM2(pm2AppName);
+			await stopPm2AndWait(pm2AppName);
 		} else {
 			writeStatus('stopping', { version, message: 'Stopping server (direct mode)' });
-			await stopServerDirect(/** @type {number} */ (serverPid));
+			console.log('[updater] Stopping server (direct mode)...');
+			killProcess(/** @type {number} */ (serverPid));
+
+			// Wait for exit (up to 30s)
+			for (let i = 0; i < 120; i++) {
+				if (!isAlive(/** @type {number} */ (serverPid))) break;
+				await sleep(250);
+			}
+
+			if (isAlive(/** @type {number} */ (serverPid))) {
+				throw new Error('Server did not stop in time');
+			}
 		}
+
+		// Extra delay for file handles to close
+		await sleep(2000);
 		writeStatus('stopped', { version, message: 'Server stopped' });
+		console.log('[updater] Server stopped');
 	} catch (e) {
 		console.error('[updater] Failed to stop server:', e);
 		writeStatus('error', { version, error: String(e?.message || e) });
-		process.exit(3);
+		cleanupAndExit(3);
 	}
 
 	// -------------------------------------------------------------------------
-	// Step 2: Swap folders (atomic on same volume)
+	// Step 2: Swap folders
 	// -------------------------------------------------------------------------
 
-	const currentVersion = readCurrentVersionFromDir(currentDir) ?? version;
+	const currentVersion = readVersionFromDir(currentDir) ?? version;
 	const prevDir = uniquePrevDir(base, currentVersion);
 
 	try {
 		writeStatus('swapping', { version, message: 'Swapping folders' });
+
 		if (!fs.existsSync(nextDir)) {
 			throw new Error(`Next release folder missing: ${nextDir}`);
 		}
@@ -717,7 +750,7 @@ async function main() {
 		console.error('[updater] Swap failed:', e);
 		writeStatus('error', { version, error: String(e?.message || e) });
 
-		// Try rollback if we renamed current away but didn't complete
+		// Attempt rollback
 		if (!fs.existsSync(currentDir) && fs.existsSync(prevDir)) {
 			console.log('[updater] Attempting rollback...');
 			try {
@@ -728,13 +761,13 @@ async function main() {
 			}
 		}
 
-		// Try to restart the server even if swap failed
+		// Try to restart server even if swap failed
 		if (usePM2) {
 			console.log('[updater] Attempting to restart server after failed swap...');
 			await pm2Start(pm2AppName);
 		}
 
-		process.exit(3);
+		cleanupAndExit(3);
 	}
 
 	// -------------------------------------------------------------------------
@@ -744,7 +777,9 @@ async function main() {
 	try {
 		if (usePM2) {
 			writeStatus('starting-server', { version, message: 'Starting server via PM2' });
-			await startServerPM2(pm2AppName);
+			const ok = await pm2Start(pm2AppName);
+			if (!ok) throw new Error('PM2 failed to start the app');
+			console.log('[updater] Server started via PM2');
 		} else {
 			writeStatus('starting-server', { version, message: 'Starting server (direct mode)' });
 			startServerDirect(currentDir);
@@ -752,11 +787,11 @@ async function main() {
 	} catch (e) {
 		console.error('[updater] Failed to start new server:', e);
 		writeStatus('error', { version, error: String(e?.message || e) });
-		process.exit(4);
+		cleanupAndExit(4);
 	}
 
 	// -------------------------------------------------------------------------
-	// Step 4: Cleanup old files
+	// Step 4: Cleanup
 	// -------------------------------------------------------------------------
 
 	try {
@@ -766,13 +801,15 @@ async function main() {
 		cleanupOldVersions(base, KEEP_PREVIOUS_VERSIONS);
 		console.log('[cleanup] Cleanup complete');
 	} catch (e) {
-		// Non-fatal: log but don't fail the update
+		// Non-fatal
 		console.error('[cleanup] Warning:', e);
 	}
 
 	console.log(`[updater] Update to ${version} complete!`);
 	writeStatus('done', { version, message: 'Update complete' });
-	process.exit(0);
+
+	// Success - cleanup and exit
+	cleanupAndExit(0);
 }
 
 // =============================================================================
@@ -782,5 +819,5 @@ async function main() {
 main().catch((e) => {
 	console.error('[updater] Fatal error:', e);
 	writeStatus('error', { version: null, error: String(e?.message || e) });
-	process.exit(1);
+	cleanupAndExit(1);
 });
