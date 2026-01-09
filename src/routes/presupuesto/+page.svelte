@@ -4,8 +4,12 @@
 	import QuoteSummary from './QuoteSummary.svelte';
 	import QuoteTotals from './QuoteTotals.svelte';
 	import ResetButton from './ResetButton.svelte';
+	import ChatPanel from './ChatPanel.svelte';
 
 	let { data } = $props();
+
+	type Mode = 'manual' | 'chat';
+	let mode = $state<Mode>('manual');
 
 	let categoryQuantities = $state<{ [categoryId: number]: number }>(
 		Object.fromEntries(data.categories.map((cat) => [cat.id, 0]))
@@ -139,49 +143,77 @@
 	}
 </script>
 
-<div class="mx-auto max-w-4xl">
-	<div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl">
+<div class="mx-auto flex min-h-[calc(100vh-8rem)] max-w-4xl flex-col">
+	<div class="flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-2xl">
 		<h2 class="mb-6 text-center text-3xl font-extrabold tracking-tight text-blue-900">
 			Presupuesto
 		</h2>
-		<QuoteSearch
-			{search}
-			{selectedStudy}
-			{showSuggestions}
-			{highlightedIndex}
-			{data}
-			{handleSearchInput}
-			{handleSearchKeydown}
-			{selectSuggestion}
-		/>
-		<div class="mt-4 flex justify-end">
-			<ResetButton onReset={resetBudget} variant="danger" />
+
+		<div class="mb-6 flex justify-center">
+			<div class="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+				<button
+					type="button"
+					onclick={() => (mode = 'manual')}
+					class="rounded-md px-4 py-2 text-sm font-medium transition {mode === 'manual'
+						? 'bg-white text-blue-900 shadow-sm'
+						: 'text-slate-600 hover:text-slate-900'}"
+				>
+					📊 Manual
+				</button>
+				<button
+					type="button"
+					onclick={() => (mode = 'chat')}
+					class="rounded-md px-4 py-2 text-sm font-medium transition {mode === 'chat'
+						? 'bg-white text-blue-900 shadow-sm'
+						: 'text-slate-600 hover:text-slate-900'}"
+				>
+					💬 Chat
+				</button>
+			</div>
 		</div>
-		<QuoteCategories
-			{data}
-			{categoryQuantities}
-			{categoryDiscounts}
-			{handleInputChange}
-			{selectAll}
-		/>
-		<div class="flex justify-end">
-			<span class="text-large inline-flex items-center bg-white px-3 py-1">
-				Total: {formatInt(totalQuantity)} estudios
-			</span>
-		</div>
-		<QuoteSummary
-			{data}
-			{categoryQuantities}
-			{categoryDiscounts}
-			{formatInt}
-			{formatNumber}
-			{showSummary}
-			toggleSummary={() => (showSummary = !showSummary)}
-		/>
-		<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity} />
-		<div class="mt-6 flex justify-end">
-			<ResetButton onReset={resetBudget} variant="danger" />
-		</div>
+
+		{#if mode === 'chat'}
+			<ChatPanel />
+		{:else}
+			<QuoteSearch
+				{search}
+				{selectedStudy}
+				{showSuggestions}
+				{highlightedIndex}
+				{data}
+				{handleSearchInput}
+				{handleSearchKeydown}
+				{selectSuggestion}
+			/>
+			<div class="mt-4 flex justify-end">
+				<ResetButton onReset={resetBudget} variant="danger" />
+			</div>
+			<QuoteCategories
+				{data}
+				{categoryQuantities}
+				{categoryDiscounts}
+				{handleInputChange}
+				{selectAll}
+			/>
+			<div class="flex justify-end">
+				<span class="text-large inline-flex items-center bg-white px-3 py-1">
+					Total: {formatInt(totalQuantity)} estudios
+				</span>
+			</div>
+			<QuoteSummary
+				{data}
+				{categoryQuantities}
+				{categoryDiscounts}
+				{formatInt}
+				{formatNumber}
+				{showSummary}
+				toggleSummary={() => (showSummary = !showSummary)}
+			/>
+			<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity} />
+			<div class="mt-6 flex justify-end">
+				<ResetButton onReset={resetBudget} variant="danger" />
+			</div>
+		{/if}
 	</div>
 </div>
 
