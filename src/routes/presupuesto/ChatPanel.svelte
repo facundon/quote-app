@@ -320,11 +320,7 @@
 		>
 			<span class="text-2xl">×</span>
 		</button>
-		<button
-			type="button"
-			class="cursor-default"
-			onclick={(e) => e.stopPropagation()}
-		>
+		<button type="button" class="cursor-default" onclick={(e) => e.stopPropagation()}>
 			<img
 				src="data:{zoomedImage.type};base64,{zoomedImage.data}"
 				alt="Imagen ampliada"
