@@ -51,6 +51,42 @@ function getAllDiscounts(): Discount[] {
 	return db.select().from(discount).all();
 }
 
+/**
+ * Get all studies with their categories, formatted for prompt injection.
+ * Groups studies by category for better readability.
+ */
+export function getStudyCatalog(): string {
+	const results = db
+		.select({
+			study_name: study.name,
+			category_name: category.name
+		})
+		.from(study)
+		.innerJoin(category, eq(study.category_id, category.id))
+		.orderBy(category.name, study.name)
+		.all();
+
+	// Group studies by category
+	const byCategory = new Map<string, string[]>();
+	for (const row of results) {
+		const studies = byCategory.get(row.category_name) ?? [];
+		studies.push(row.study_name);
+		byCategory.set(row.category_name, studies);
+	}
+
+	// Format as readable list
+	const lines: string[] = [];
+	for (const [categoryName, studies] of byCategory) {
+		lines.push(`### ${categoryName}`);
+		for (const studyName of studies) {
+			lines.push(`- ${studyName}`);
+		}
+		lines.push('');
+	}
+
+	return lines.join('\n');
+}
+
 function searchStudies(query: string): StudyWithCategory[] {
 	const results = db
 		.select({

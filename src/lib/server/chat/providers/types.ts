@@ -5,6 +5,10 @@
 export interface ChatMessage {
 	role: 'user' | 'assistant';
 	content: string;
+	/** Base64-encoded image data (without data URL prefix) */
+	image?: string;
+	/** MIME type of the image (e.g., 'image/jpeg', 'image/png') */
+	imageType?: string;
 }
 
 export interface ChatResponse {

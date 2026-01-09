@@ -50,6 +50,7 @@
 		"dotenv": "^17.2.0",
 		"drizzle-orm": "^0.40.0",
 		"groq-sdk": "^0.37.0",
+		"marked": "^15.0.12",
 		"nodemailer": "^7.0.5"
 	}
 }

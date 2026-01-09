@@ -2,8 +2,11 @@ import Groq from 'groq-sdk';
 import { env } from '$env/dynamic/private';
 import type { LLMProvider, ChatMessage, ChatResponse } from './types';
 import { tools, type ToolDefinition } from '../toolSchema';
-import { executeTool } from '../tools';
-import { SYSTEM_PROMPT } from '../prompt';
+import { executeTool, getStudyCatalog } from '../tools';
+import { buildSystemPrompt } from '../prompt';
+
+const TEXT_MODEL = 'llama-3.3-70b-versatile';
+const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 /**
  * Convert our tool schema to Groq's function format (OpenAI-compatible).
@@ -17,6 +20,52 @@ function convertToGroqTools(): Groq.Chat.ChatCompletionTool[] {
 			parameters: tool.parameters
 		}
 	}));
+}
+
+/**
+ * Check if any message contains an image.
+ */
+function hasImages(messages: ChatMessage[]): boolean {
+	return messages.some((m) => m.image);
+}
+
+/**
+ * Convert a message to Groq format for vision model (supports multimodal content).
+ */
+function toVisionMessage(msg: ChatMessage): Groq.Chat.ChatCompletionMessageParam {
+	if (msg.role === 'user' && msg.image) {
+		const mimeType = msg.imageType || 'image/jpeg';
+		return {
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: msg.content || 'Extraé la lista de estudios de esta imagen y cotizalos.'
+				},
+				{
+					type: 'image_url',
+					image_url: {
+						url: `data:${mimeType};base64,${msg.image}`
+					}
+				}
+			]
+		};
+	}
+	return { role: msg.role, content: msg.content };
+}
+
+/**
+ * Convert a message to Groq format for text model (string content only).
+ */
+function toTextMessage(msg: ChatMessage): Groq.Chat.ChatCompletionMessageParam {
+	if (msg.role === 'user' && msg.image) {
+		// For text model, describe that there was an image
+		return {
+			role: 'user',
+			content: `${msg.content || ''}\n[El usuario envió una imagen con estudios a cotizar]`.trim()
+		};
+	}
+	return { role: msg.role, content: msg.content };
 }
 
 /**
@@ -36,19 +85,22 @@ export class GroqProvider implements LLMProvider {
 
 	async chat(messages: ChatMessage[]): Promise<ChatResponse> {
 		const groqTools = convertToGroqTools();
+		const useVision = hasImages(messages);
+		const model = useVision ? VISION_MODEL : TEXT_MODEL;
+		const toMessage = useVision ? toVisionMessage : toTextMessage;
 
-		// Convert messages to Groq format (OpenAI-compatible)
+		const studyCatalog = getStudyCatalog();
+		const systemPrompt = buildSystemPrompt(studyCatalog);
+
+		// Convert messages to Groq format
 		const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [
-			{ role: 'system', content: SYSTEM_PROMPT },
-			...messages.map((m) => ({
-				role: m.role as 'user' | 'assistant',
-				content: m.content
-			}))
+			{ role: 'system', content: systemPrompt },
+			...messages.map(toMessage)
 		];
 
-		// Initial API call - use tool-use optimized model
+		// Initial API call
 		let response = await this.client.chat.completions.create({
-			model: 'llama-3.3-70b-versatile',
+			model,
 			max_tokens: 4096,
 			tools: groqTools,
 			tool_choice: 'auto',
@@ -79,9 +131,9 @@ export class GroqProvider implements LLMProvider {
 				});
 			}
 
-			// Continue the conversation
+			// Continue with same model for consistency
 			response = await this.client.chat.completions.create({
-				model: 'llama-3.3-70b-versatile',
+				model,
 				max_tokens: 4096,
 				tools: groqTools,
 				tool_choice: 'auto',
