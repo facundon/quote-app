@@ -38,7 +38,7 @@
 	}
 </script>
 
-<div class="mx-auto mb-6 max-w-3xl">
+<div class="mb-6 w-full">
 	<label for="search-input" class="mb-1 block text-sm font-semibold text-blue-900"
 		>Buscar estudio</label
 	>

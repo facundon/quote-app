@@ -49,11 +49,14 @@ module.exports = {
 					'https://github.com/facundon/quote-app/releases/latest/download/update-manifest.json',
 
 				// Email configuration (optional)
-				SMTP_HOST: 'smtp.gmail.com',
 				SMTP_PORT: '587',
 				SMTP_SECURE: 'false',
 				SMTP_USER: 'your-email@gmail.com',
-				SMTP_PASS: 'your-app-password'
+				SMTP_PASS: 'your-app-password',
+
+				OPENAI_API_KEY: 'the key here',
+				GROQ_API_KEY: 'the key here',
+				LLM_PROVIDER: 'openai'
 			}
 		}
 	]
