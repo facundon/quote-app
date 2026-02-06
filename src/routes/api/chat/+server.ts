@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getProvider, type ChatMessage } from '$lib/server/chat/providers';
+import { processConversation, type PipelineChatMessage } from '$lib/server/chat/agents';
 
 interface ChatRequest {
-	messages: ChatMessage[];
+	messages: PipelineChatMessage[];
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -15,11 +15,11 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const provider = getProvider();
-		const result = await provider.chat(messages);
+		const result = await processConversation(messages);
 
 		return json({
 			response: result.response,
+			quote: result.quote,
 			usage: result.usage
 		});
 	} catch (error) {

@@ -54,9 +54,7 @@ module.exports = {
 				SMTP_USER: 'your-email@gmail.com',
 				SMTP_PASS: 'your-app-password',
 
-				OPENAI_API_KEY: 'the key here',
-				GROQ_API_KEY: 'the key here',
-				LLM_PROVIDER: 'openai'
+				GEMINI_API_KEY: 'the key here'
 			}
 		}
 	]
