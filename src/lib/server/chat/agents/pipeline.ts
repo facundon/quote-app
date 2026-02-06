@@ -93,6 +93,16 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 		`[Pipeline] Mapped: ${mapping.matched.length} matched, ${mapping.unmatched.length} unmatched`
 	);
 
+	// Log per-item confidence for debugging
+	for (const study of mapping.matched) {
+		const extractionTag = study.extractionConfidence
+			? ` [extraction: ${study.extractionConfidence}]`
+			: '';
+		console.log(
+			`[Pipeline]   "${study.original}" → "${study.catalogName}" (${study.matchMethod}/${study.confidence})${extractionTag}${study.reasoning ? ` — ${study.reasoning}` : ''}`
+		);
+	}
+
 	// Handle case where nothing could be mapped
 	if (mapping.matched.length === 0 && mapping.unmatched.length > 0) {
 		const unmatchedNames = mapping.unmatched.map((u) => u.name).join(', ');

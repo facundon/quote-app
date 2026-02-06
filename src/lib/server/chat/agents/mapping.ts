@@ -16,7 +16,9 @@ import type {
 	AgentResult,
 	LLMMappingResponse,
 	LLMMapping,
-	TokenUsage
+	TokenUsage,
+	MatchMethod,
+	MappingConfidence
 } from './types';
 import {
 	type CatalogStudy,
@@ -29,7 +31,7 @@ import {
 } from './catalog';
 import { buildMappingPrompt, buildGroundedSearchPrompt } from '../prompts/mapping';
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-2.5-flash';
 
 export interface MappingAgentResult extends AgentResult<MappingResult> {
 	usage?: TokenUsage;
@@ -155,7 +157,12 @@ export class MappingAgent {
 		for (const extracted of studies) {
 			const match = findBestMatch(extracted.name, catalog);
 			if (match) {
-				matched.push(this.toMappedStudy(extracted, match, 'exact'));
+				matched.push(
+					this.toMappedStudy(extracted, match, {
+						confidence: 'exact',
+						matchMethod: 'direct'
+					})
+				);
 			} else {
 				remaining.push(extracted);
 			}
@@ -230,7 +237,13 @@ export class MappingAgent {
 
 			const catalogMatch = findExactMatch(mapping.catalogName, catalog);
 			if (catalogMatch) {
-				matched.push(this.toMappedStudy(extracted, catalogMatch, 'fuzzy'));
+				matched.push(
+					this.toMappedStudy(extracted, catalogMatch, {
+						confidence: mapping.confidence as MappingConfidence,
+						matchMethod: 'llm',
+						reasoning: mapping.reasoning
+					})
+				);
 			} else {
 				unmatched.push(extracted);
 			}
@@ -295,7 +308,13 @@ export class MappingAgent {
 				usage = mergeUsage(usage, result.usage ?? emptyUsage());
 
 				if (result.catalogMatch) {
-					matched.push(this.toMappedStudy(extracted, result.catalogMatch, 'fuzzy'));
+					matched.push(
+						this.toMappedStudy(extracted, result.catalogMatch, {
+							confidence: 'grounded',
+							matchMethod: 'grounded',
+							reasoning: `Validated via web search (originally suggested: "${suggestedName}")`
+						})
+					);
 				} else {
 					unmatched.push(extracted);
 				}
@@ -355,7 +374,11 @@ export class MappingAgent {
 	private toMappedStudy(
 		extracted: ExtractedStudy,
 		match: CatalogStudy,
-		confidence: 'exact' | 'fuzzy'
+		meta: {
+			confidence: MappingConfidence;
+			matchMethod: MatchMethod;
+			reasoning?: string;
+		}
 	): MappedStudy {
 		return {
 			original: extracted.name,
@@ -365,7 +388,10 @@ export class MappingAgent {
 			categoryId: match.categoryId,
 			unitPrice: match.unitPrice,
 			quantity: extracted.quantity,
-			confidence
+			confidence: meta.confidence,
+			matchMethod: meta.matchMethod,
+			reasoning: meta.reasoning,
+			extractionConfidence: extracted.extractionConfidence
 		};
 	}
 

@@ -14,7 +14,15 @@ export interface ExtractedStudy {
 	quantity: number;
 	/** Any relevant context (e.g., "urgent", "fasting required") */
 	context?: string;
+	/** How confident the extraction agent is about this item (especially relevant for images) */
+	extractionConfidence?: 'high' | 'medium' | 'low';
 }
+
+/** How the study was matched to the catalog. */
+export type MatchMethod = 'direct' | 'llm' | 'grounded';
+
+/** Granular confidence level for a catalog match. */
+export type MappingConfidence = 'exact' | 'high' | 'medium' | 'low' | 'grounded';
 
 /**
  * Study after mapping to the catalog.
@@ -35,8 +43,14 @@ export interface MappedStudy {
 	unitPrice: number;
 	/** Quantity requested */
 	quantity: number;
-	/** Confidence level of the match */
-	confidence: 'exact' | 'fuzzy' | 'unmatched';
+	/** Granular confidence level of the match */
+	confidence: MappingConfidence;
+	/** How this study was matched (direct text match, LLM inference, or grounded search) */
+	matchMethod: MatchMethod;
+	/** LLM reasoning for non-obvious matches */
+	reasoning?: string;
+	/** How confident the extraction agent was about reading this study name */
+	extractionConfidence?: 'high' | 'medium' | 'low';
 }
 
 /**
@@ -50,13 +64,32 @@ export interface MappingResult {
 }
 
 /**
+ * Per-study detail within a quote line item.
+ * Tracks confidence provenance from extraction through mapping.
+ */
+export interface QuoteStudyDetail {
+	/** Catalog name of the study */
+	name: string;
+	/** Original name as written by the user */
+	original: string;
+	/** How confident the mapping is */
+	confidence: MappingConfidence;
+	/** How the match was found */
+	matchMethod: MatchMethod;
+	/** LLM reasoning for non-obvious matches */
+	reasoning?: string;
+	/** Extraction confidence (how clearly the name was read) */
+	extractionConfidence?: 'high' | 'medium' | 'low';
+}
+
+/**
  * Line item in the quote calculation.
  */
 export interface QuoteLineItem {
 	/** Category name */
 	category: string;
-	/** Studies in this category */
-	studies: string[];
+	/** Studies in this category with confidence details */
+	studies: QuoteStudyDetail[];
 	/** Total quantity */
 	quantity: number;
 	/** Price per unit */

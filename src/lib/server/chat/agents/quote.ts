@@ -6,7 +6,14 @@
 import { db } from '../../db';
 import { category, discount, type Category, type Discount } from '../../db/schema';
 import { eq } from 'drizzle-orm';
-import type { MappedStudy, MappingResult, QuoteResult, QuoteLineItem } from './types';
+import type {
+	MappedStudy,
+	MappingResult,
+	QuoteResult,
+	QuoteLineItem,
+	QuoteStudyDetail,
+	MappingConfidence
+} from './types';
 
 /**
  * Get all discounts from the database.
@@ -38,22 +45,31 @@ export class QuoteAgent {
 			number,
 			{
 				category: Category;
-				studies: string[];
+				studies: QuoteStudyDetail[];
 				quantity: number;
 			}
 		>();
 
 		for (const study of matched) {
+			const detail: QuoteStudyDetail = {
+				name: study.catalogName,
+				original: study.original,
+				confidence: study.confidence,
+				matchMethod: study.matchMethod,
+				reasoning: study.reasoning,
+				extractionConfidence: study.extractionConfidence
+			};
+
 			const existing = categoryGroups.get(study.categoryId);
 			if (existing) {
 				existing.quantity += study.quantity;
-				existing.studies.push(study.catalogName);
+				existing.studies.push(detail);
 			} else {
 				const cat = getCategoryById(study.categoryId);
 				if (cat) {
 					categoryGroups.set(study.categoryId, {
 						category: cat,
-						studies: [study.catalogName],
+						studies: [detail],
 						quantity: study.quantity
 					});
 				}
@@ -135,11 +151,26 @@ export class QuoteAgent {
 			for (const item of quote.lineItems) {
 				// Category header with studies
 				if (item.studies.length === 1) {
-					lines.push(`- **${item.studies[0]}**`);
+					const study = item.studies[0];
+					lines.push(`- **${study.name}** ${this.confidenceBadge(study)}`);
+					if (study.original !== study.name) {
+						lines.push(`  _"${study.original}"_ → ${study.name}`);
+					}
+					if (study.reasoning) {
+						lines.push(`  _${study.reasoning}_`);
+					}
 				} else {
 					lines.push(`- **${item.category}** (${item.quantity} estudios)`);
 					for (const study of item.studies) {
-						lines.push(`  - ${study}`);
+						const badge = this.confidenceBadge(study);
+						if (study.original !== study.name) {
+							lines.push(`  - ${study.name} ${badge} — _"${study.original}"_`);
+						} else {
+							lines.push(`  - ${study.name} ${badge}`);
+						}
+						if (study.reasoning) {
+							lines.push(`    _${study.reasoning}_`);
+						}
 					}
 				}
 
@@ -168,6 +199,16 @@ export class QuoteAgent {
 			lines.push('');
 		}
 
+		// Confidence legend (only if there are non-exact matches)
+		const hasNonExact = quote.lineItems.some((item) =>
+			item.studies.some((s) => s.confidence !== 'exact')
+		);
+		if (hasNonExact) {
+			lines.push(
+				'> ✅ Exacto · 🟢 Alta confianza · 🟡 Media confianza · 🔍 Validado por búsqueda\n'
+			);
+		}
+
 		// Summary
 		lines.push('---\n');
 
@@ -179,10 +220,35 @@ export class QuoteAgent {
 		lines.push(`**Total: $${quote.summary.finalTotal.toLocaleString('es-AR')}**`);
 
 		if (quote.summary.totalStudies > 0) {
-			lines.push(`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`);
+			lines.push(
+				`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`
+			);
 		}
 
 		return lines.join('\n');
+	}
+
+	/**
+	 * Return an emoji badge representing the confidence level of a study match.
+	 */
+	private confidenceBadge(study: QuoteStudyDetail): string {
+		const badges: Record<MappingConfidence, string> = {
+			exact: '✅',
+			high: '🟢',
+			medium: '🟡',
+			low: '🔴',
+			grounded: '🔍'
+		};
+
+		const badge = badges[study.confidence] ?? '❓';
+
+		// Add extraction warning if the name was hard to read
+		if (study.extractionConfidence && study.extractionConfidence !== 'high') {
+			const extractionBadge = study.extractionConfidence === 'medium' ? '👁️?' : '👁️⚠️';
+			return `${badge} ${extractionBadge}`;
+		}
+
+		return badge;
 	}
 
 	/**

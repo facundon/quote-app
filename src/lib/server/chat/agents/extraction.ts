@@ -8,7 +8,7 @@ import { env } from '$env/dynamic/private';
 import type { ExtractedStudy, AgentResult } from './types';
 import { EXTRACTION_SYSTEM_PROMPT, IMAGE_ONLY_PROMPT } from '../prompts/extraction';
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-2.5-flash';
 
 /**
  * Schema for structured JSON output.
@@ -34,9 +34,16 @@ const extractionResponseSchema: Schema = {
 					context: {
 						type: SchemaType.STRING,
 						description: 'Optional context like urgency or special instructions'
+					},
+					confidence: {
+						type: SchemaType.STRING,
+						description:
+							'How confident you are in reading this study name: high (clearly written/typed), medium (somewhat ambiguous or partially readable), low (guessing from poor handwriting or blurry image)',
+						format: 'enum',
+						enum: ['high', 'medium', 'low']
 					}
 				},
-				required: ['name', 'quantity']
+				required: ['name', 'quantity', 'confidence']
 			}
 		}
 	},
@@ -52,8 +59,15 @@ interface ExtractionInput {
 	imageType?: string;
 }
 
+interface ExtractionResponseStudy {
+	name: string;
+	quantity: number;
+	context?: string;
+	confidence: string;
+}
+
 interface ExtractionResponse {
-	studies: ExtractedStudy[];
+	studies: ExtractionResponseStudy[];
 }
 
 interface ExtractionUsage {
@@ -170,7 +184,10 @@ export class ExtractionAgent {
 			const studies: ExtractedStudy[] = parsed.studies.map((s) => ({
 				name: s.name.trim(),
 				quantity: Math.max(1, Math.round(s.quantity || 1)),
-				context: s.context?.trim()
+				context: s.context?.trim(),
+				extractionConfidence: (['high', 'medium', 'low'].includes(s.confidence)
+					? s.confidence
+					: 'high') as 'high' | 'medium' | 'low'
 			}));
 
 			return {

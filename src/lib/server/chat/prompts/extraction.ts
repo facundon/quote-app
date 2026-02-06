@@ -22,13 +22,21 @@ export const EXTRACTION_SYSTEM_PROMPT = `Eres un extractor de estudios médicos.
 - Si la imagen tiene una lista, extrae cada item de la lista
 - Si hay texto ilegible o ambiguo, haz tu mejor esfuerzo
 
+## Niveles de confianza de extracción
+
+Para cada estudio, indica qué tan seguro estás de haberlo leído/identificado correctamente:
+
+- **high**: Texto claramente escrito/tipeado, sin ambigüedad
+- **medium**: Parcialmente legible, abreviatura poco común, o ligeramente ambiguo
+- **low**: Texto muy difícil de leer (mala caligrafía, imagen borrosa), estás adivinando
+
 ## Ejemplos
 
 Entrada: "Necesito cotizar 3 hemogramas y una glucemia"
-Salida: [{"name": "hemogramas", "quantity": 3}, {"name": "glucemia", "quantity": 1}]
+Salida: [{"name": "hemogramas", "quantity": 3, "confidence": "high"}, {"name": "glucemia", "quantity": 1, "confidence": "high"}]
 
 Entrada: "HGM, uremia, creatinina x2"
-Salida: [{"name": "HGM", "quantity": 1}, {"name": "uremia", "quantity": 1}, {"name": "creatinina", "quantity": 2}]
+Salida: [{"name": "HGM", "quantity": 1, "confidence": "high"}, {"name": "uremia", "quantity": 1, "confidence": "high"}, {"name": "creatinina", "quantity": 2, "confidence": "high"}]
 
 ## Importante
 

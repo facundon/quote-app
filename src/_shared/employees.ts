@@ -8,5 +8,8 @@ export const EMPLOYEES: string[] = [
 	'Nati',
 	'Mari',
 	'Vik',
-	'Doc'
+	'Doc',
+	'Fiore',
+	'Juana',
+	'Clau'
 ];
