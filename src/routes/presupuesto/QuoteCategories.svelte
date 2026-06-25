@@ -41,8 +41,8 @@
 					<span class="text-xs text-slate-500">${cat.unit_price.toFixed(2)} c/u</span>
 				{/if}
 				<input
-					type="number"
-					min="0"
+					type="text"
+					inputmode="numeric"
 					bind:value={categoryQuantities[cat.id]}
 					oninput={(e: Event) => handleInputChange(e, cat.id)}
 					onfocus={selectAll}

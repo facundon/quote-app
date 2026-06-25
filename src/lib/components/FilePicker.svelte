@@ -35,7 +35,16 @@
 	let wasDropped = $state(false);
 	let fileInput: HTMLInputElement | null = null;
 
+	function assignFileToInput(file: File) {
+		if (!fileInput) return;
+		const dataTransfer = new DataTransfer();
+		dataTransfer.items.add(file);
+		fileInput.files = dataTransfer.files;
+	}
+
 	function triggerFileDialog() {
+		// Allow re-selecting the same file (change event won't fire otherwise)
+		if (fileInput) fileInput.value = '';
 		fileInput?.click();
 	}
 
@@ -49,10 +58,14 @@
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		isDragging = false;
-		if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
-			onFileSelected?.(event.dataTransfer.files[0], id);
+		if (event.dataTransfer?.files?.[0]) {
+			const file = event.dataTransfer.files[0];
+			assignFileToInput(file);
+			onFileSelected?.(file, id);
 			wasDropped = true;
-			setTimeout(() => { wasDropped = false; }, 1200); // efecto visual breve
+			setTimeout(() => {
+				wasDropped = false;
+			}, 1200);
 		}
 	}
 

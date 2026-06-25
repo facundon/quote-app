@@ -22,7 +22,10 @@
 
 	function handleInputChange(e: Event, categoryId: number) {
 		const target = e.target as HTMLInputElement;
-		categoryQuantities = { ...categoryQuantities, [categoryId]: +target.value };
+		const value = target.value.trim();
+		const numValue = value === '' ? 0 : Math.max(0, parseInt(value) || 0);
+		categoryQuantities = { ...categoryQuantities, [categoryId]: numValue };
+		target.value = numValue.toString();
 	}
 
 	function formatNumber(n: number) {
