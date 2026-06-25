@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Category, Study } from './types';
+	import { matchesSearch } from '$lib/utils/search';
+
 	let {
 		search,
 		selectedStudy,
@@ -23,17 +25,7 @@
 	function handleSearch(e: KeyboardEvent) {
 		handleSearchKeydown(
 			e,
-			data.studies.filter((s: Study) => {
-				const normalizedSearch = search
-					.toLowerCase()
-					.normalize('NFD')
-					.replace(/[\u0300-\u036f]/g, '');
-				const normalizedName = s.name
-					.toLowerCase()
-					.normalize('NFD')
-					.replace(/[\u0300-\u036f]/g, '');
-				return normalizedName.includes(normalizedSearch);
-			})
+			data.studies.filter((s: Study) => matchesSearch(s.name, search))
 		);
 	}
 </script>
@@ -66,9 +58,7 @@
 			<ul
 				class="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
 			>
-				{#each data.studies.filter((s: Study) => s.name
-						.toLowerCase()
-						.includes(search.toLowerCase())) as s: Study, i (s.id)}
+				{#each data.studies.filter((s: Study) => matchesSearch(s.name, search)) as s: Study, i (s.id)}
 					<li>
 						<button
 							type="button"
@@ -90,9 +80,7 @@
 						</button>
 					</li>
 				{/each}
-				{#if data.studies.filter((s: Study) => s.name
-						.toLowerCase()
-						.includes(search.toLowerCase())).length === 0}
+				{#if data.studies.filter((s: Study) => matchesSearch(s.name, search)).length === 0}
 					<li class="px-3 py-2 text-sm text-slate-400">Sin resultados</li>
 				{/if}
 			</ul>
