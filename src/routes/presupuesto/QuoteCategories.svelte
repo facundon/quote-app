@@ -21,6 +21,14 @@
 		handleInputChange: (e: Event, categoryId: number) => void;
 		selectAll: (e: Event) => void;
 	} = $props();
+
+	function increment(categoryId: number) {
+		categoryQuantities[categoryId] = (categoryQuantities[categoryId] || 0) + 1;
+	}
+
+	function decrement(categoryId: number) {
+		categoryQuantities[categoryId] = Math.max(0, (categoryQuantities[categoryId] || 0) - 1);
+	}
 </script>
 
 <div class="mt-2 mb-4 rounded-xl bg-blue-50/60 p-4">
@@ -40,15 +48,33 @@
 				{:else}
 					<span class="text-xs text-slate-500">${cat.unit_price.toFixed(2)} c/u</span>
 				{/if}
-				<input
-					type="text"
-					inputmode="numeric"
-					bind:value={categoryQuantities[cat.id]}
-					oninput={(e: Event) => handleInputChange(e, cat.id)}
-					onfocus={selectAll}
-					onclick={selectAll}
-					class="w-16 rounded-lg border border-slate-300 px-2 py-1 text-center text-xs transition focus:ring-2 focus:ring-blue-400 focus:outline-none"
-				/>
+				<div class="flex items-center gap-1">
+					<input
+						type="text"
+						inputmode="numeric"
+						bind:value={categoryQuantities[cat.id]}
+						oninput={(e: Event) => handleInputChange(e, cat.id)}
+						onfocus={selectAll}
+						onclick={selectAll}
+						class="w-16 rounded-lg border border-slate-300 px-2 py-1 text-center text-xs transition focus:ring-2 focus:ring-blue-400 focus:outline-none"
+					/>
+					<div class="flex flex-col gap-0">
+						<button
+							type="button"
+							onclick={() => increment(cat.id)}
+							class="h-4 w-5 flex items-center justify-center rounded-t border border-slate-300 border-b-0 bg-slate-100 text-xs leading-none text-slate-600 hover:bg-slate-200 transition"
+						>
+							▲
+						</button>
+						<button
+							type="button"
+							onclick={() => decrement(cat.id)}
+							class="h-4 w-5 flex items-center justify-center rounded-b border border-slate-300 bg-slate-100 text-xs leading-none text-slate-600 hover:bg-slate-200 transition"
+						>
+							▼
+						</button>
+					</div>
+				</div>
 			</li>
 		{/each}
 	</ul>
