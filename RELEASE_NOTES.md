@@ -1,2 +1,3 @@
-Se arreglo indicador de envio de email.
-Se agrego estado de proceso de envio de email.
+Se arreglo busqueda de estudios con acentos.
+Se arreglo subida de recibos en facturas.
+Se arreglo problema con scroll en presupuesto.
