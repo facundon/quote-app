@@ -3,7 +3,7 @@
 	import { scale } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import Toast from '$lib/components/Toast.svelte';
-	import type { Ticket } from '$lib/server/db/schema';
+	import type { Ticket, Bulletin } from '$lib/server/db/schema';
 
 	import HeaderBar from './components/HeaderBar.svelte';
 	import FiltersBar from './components/FiltersBar.svelte';
@@ -13,11 +13,14 @@
 	import TicketsTable from './components/TicketsTable.svelte';
 	import TicketCreateModal from './components/TicketCreateModal.svelte';
 	import TicketEditModal from './components/TicketEditModal.svelte';
+	import BulletinCard from '../news/components/BulletinCard.svelte';
 	import { updateTicketStatus, cycleStatus, deleteTicketById } from './services';
 	import { getStatusInfo, statusOptions, prioridadOptions } from './utils';
+	import { parseEmployeesJson } from '../news/utils';
 
 	interface PageData {
 		tickets: Ticket[];
+		bulletins: Bulletin[];
 		employees: string[];
 	}
 
@@ -109,6 +112,14 @@
 		const nonResolved = base.filter((t) => t.status !== 'resolved').length;
 		const resolved = base.filter((t) => t.status === 'resolved').length;
 		return { nonResolved, resolved };
+	});
+
+	let filteredBulletins = $derived(() => {
+		if (!employeeFilter) return [];
+		return data.bulletins.filter((b) => {
+			const employees = parseEmployeesJson(b.employees);
+			return employees.includes(employeeFilter);
+		});
 	});
 
 	// Agrupaciones por estado para la vista de columnas
@@ -260,6 +271,18 @@
 			quickCounts={quickCounts()}
 			onClear={clearFilters}
 		/>
+
+		<!-- Sección de Noticias del Empleado Seleccionado -->
+		{#if employeeFilter && filteredBulletins().length > 0}
+			<div class="mb-8 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 shadow-md">
+				<h3 class="mb-4 text-sm font-semibold text-gray-600">📰 Noticias de {employeeFilter}</h3>
+				<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+					{#each filteredBulletins() as b (b.id)}
+						<BulletinCard bulletin={b} noOptions={true} />
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		<!-- Lista/Grid de tickets -->
 		{#if filteredTickets().length === 0}

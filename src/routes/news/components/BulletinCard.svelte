@@ -19,12 +19,13 @@
 
 	interface Props {
 		bulletin: Bulletin;
+		noOptions?: boolean;
 		onEdit?: (bulletin: Bulletin) => void;
 		onDelete?: (id: number) => void;
 		onTogglePin?: (id: number) => void;
 	}
 
-	let { bulletin, onEdit, onDelete, onTogglePin }: Props = $props();
+	let { bulletin, onEdit, onDelete, onTogglePin, noOptions }: Props = $props();
 
 	const employees = $derived(parseEmployeesJson(bulletin.employees));
 	const isPinned = $derived(bulletin.isPinned === 'true');
@@ -39,33 +40,37 @@
 		<div class="flex items-center gap-2">
 			<span class="font-mono text-xs text-gray-500">#{bulletin.id}</span>
 			{#if isPinned}
-				<span class="inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+				<span
+					class="inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800"
+				>
 					📌 Destacado
 				</span>
 			{/if}
 		</div>
-		<Menu
-			options={[
-				{
-					label: 'Editar',
-					icon: '✏️',
-					color: 'text-blue-600',
-					callback: () => onEdit?.(bulletin)
-				},
-				{
-					label: isPinned ? 'Desfijar' : 'Fijar',
-					icon: isPinned ? '☆' : '⭐',
-					color: 'text-yellow-600',
-					callback: () => onTogglePin?.(bulletin.id)
-				},
-				{
-					label: 'Eliminar',
-					icon: '🗑️',
-					color: 'text-red-600',
-					callback: () => onDelete?.(bulletin.id)
-				}
-			]}
-		/>
+		{#if !noOptions}
+			<Menu
+				options={[
+					{
+						label: 'Editar',
+						icon: '✏️',
+						color: 'text-blue-600',
+						callback: () => onEdit?.(bulletin)
+					},
+					{
+						label: isPinned ? 'Desfijar' : 'Fijar',
+						icon: isPinned ? '☆' : '⭐',
+						color: 'text-yellow-600',
+						callback: () => onTogglePin?.(bulletin.id)
+					},
+					{
+						label: 'Eliminar',
+						icon: '🗑️',
+						color: 'text-red-600',
+						callback: () => onDelete?.(bulletin.id)
+					}
+				]}
+			/>
+		{/if}
 	</div>
 
 	<!-- Image if present -->

@@ -48,7 +48,7 @@
 
 		<!-- Search -->
 		<div>
-			<label for="search" class="mb-2 block text-sm font-medium text-gray-700">Buscar boletín</label
+			<label for="search" class="mb-2 block text-sm font-medium text-gray-700">Buscar noticia</label
 			>
 			<input
 				id="search"

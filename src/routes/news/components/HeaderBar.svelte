@@ -9,11 +9,6 @@
 </script>
 
 <div class="flex items-center justify-between">
-	<h1 class="text-3xl font-extrabold text-blue-900">📰 Boletines</h1>
-	<ActionButton
-		variant="primary"
-		onclick={onCreate}
-	>
-		➕ Agregar Boletín
-	</ActionButton>
+	<h1 class="text-3xl font-extrabold text-blue-900">📰 Noticias</h1>
+	<ActionButton variant="primary" onclick={onCreate}>➕ Agregar Noticia</ActionButton>
 </div>

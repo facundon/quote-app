@@ -58,7 +58,7 @@
 	}
 
 	async function handleDeleteBulletin(id: number) {
-		if (!confirm('¿Estás seguro de que quieres eliminar este boletín?')) return;
+		if (!confirm('¿Estás seguro de que quieres eliminar esta noticia?')) return;
 
 		const form = new FormData();
 		form.append('id', id.toString());
@@ -108,8 +108,8 @@
 	<!-- Filters -->
 	<FiltersBar
 		period={periodFilter}
-		searchTerm={searchTerm}
-		employeeFilter={employeeFilter}
+		{searchTerm}
+		{employeeFilter}
 		employees={data.employees}
 		onPeriodChange={(value) => {
 			periodFilter = value;
@@ -136,16 +136,16 @@
 		<div class="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
 			<div class="mb-4 text-6xl">🗞️</div>
 			{#if bulletins.length === 0}
-				<h3 class="mb-2 text-lg font-medium text-gray-900">No hay boletines creados</h3>
-				<p class="mb-4 text-gray-600">Comienza creando tu primer boletín para el equipo</p>
+				<h3 class="mb-2 text-lg font-medium text-gray-900">No hay noticias creadas</h3>
+				<p class="mb-4 text-gray-600">Comienza creando tu primer noticia para el equipo</p>
 				<button
 					onclick={handleCreateClick}
 					class="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
 				>
-					Crear primer boletín
+					Crear primer noticia
 				</button>
 			{:else}
-				<h3 class="mb-2 text-lg font-medium text-gray-900">No se encontraron boletines</h3>
+				<h3 class="mb-2 text-lg font-medium text-gray-900">No se encontraron noticias</h3>
 				<p class="mb-4 text-gray-600">Intenta ajustar los filtros de búsqueda</p>
 				<button
 					onclick={clearFilters}
@@ -168,7 +168,7 @@
 <!-- Modals -->
 <BulletinCreateModal
 	isOpen={showCreateModal}
-	isSubmitting={isSubmitting}
+	{isSubmitting}
 	employees={data.employees}
 	onClose={handleCloseCreateModal}
 	onSuccess={handleSuccess}
@@ -177,7 +177,7 @@
 <BulletinEditModal
 	bulletin={editingBulletin}
 	isOpen={showEditModal}
-	isSubmitting={isSubmitting}
+	{isSubmitting}
 	employees={data.employees}
 	onClose={handleCloseEditModal}
 	onSuccess={handleSuccess}

@@ -5,7 +5,7 @@
 
 	const navItems = [
 		{
-			label: 'Boletines',
+			label: 'Noticias',
 			href: '/news',
 			icon: '📰'
 		},

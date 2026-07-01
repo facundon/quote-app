@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { ticket } from '$lib/server/db/schema';
+import { ticket, bulletin } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
 import type { Actions, ServerLoad, RequestEvent } from '@sveltejs/kit';
@@ -8,11 +8,12 @@ import { EMPLOYEES } from '../../_shared/employees';
 export const load: ServerLoad = async () => {
 	try {
 		const tickets = await db.select().from(ticket).orderBy(desc(ticket.created_at));
+		const bulletins = await db.select().from(bulletin).orderBy(desc(bulletin.isPinned), desc(bulletin.created_at));
 		const employees = EMPLOYEES;
-		return { tickets, employees };
+		return { tickets, bulletins, employees };
 	} catch (error) {
 		console.error('Error loading tickets:', error);
-		return { tickets: [], employees: [] };
+		return { tickets: [], bulletins: [], employees: [] };
 	}
 };
 

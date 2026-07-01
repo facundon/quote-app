@@ -64,10 +64,10 @@ export const actions: Actions = {
 				)
 				.run(title, description, image_url, employees, isPinned, now, now);
 
-			return { success: true, message: 'Boletín creado correctamente' };
+			return { success: true, message: 'Noticia creada correctamente' };
 		} catch (e) {
 			console.error('Error creating bulletin:', e);
-			return fail(500, { error: 'Error al crear el boletín' });
+			return fail(500, { error: 'Error al crear la noticia' });
 		}
 	},
 
@@ -120,10 +120,10 @@ export const actions: Actions = {
 				)
 				.run(title, description, image_url, employees, isPinned, now, id);
 
-			return { success: true, message: 'Boletín actualizado correctamente' };
+			return { success: true, message: 'Noticia actualizada correctamente' };
 		} catch (e) {
 			console.error('Error updating bulletin:', e);
-			return fail(500, { error: 'Error al actualizar el boletín' });
+			return fail(500, { error: 'Error al actualizar la noticia' });
 		}
 	},
 
@@ -137,10 +137,10 @@ export const actions: Actions = {
 
 		try {
 			sqlite.prepare('DELETE FROM bulletin WHERE id = ?').run(id);
-			return { success: true, message: 'Boletín eliminado correctamente' };
+			return { success: true, message: 'Noticia eliminada correctamente' };
 		} catch (e) {
 			console.error('Error deleting bulletin:', e);
-			return fail(500, { error: 'Error al eliminar el boletín' });
+			return fail(500, { error: 'Error al eliminar la noticia' });
 		}
 	},
 
@@ -159,7 +159,7 @@ export const actions: Actions = {
 				| undefined;
 
 			if (!bulletin) {
-				return fail(404, { error: 'Boletín no encontrado' });
+				return fail(404, { error: 'Noticia no encontrada' });
 			}
 
 			const newPinned = bulletin.isPinned === 'true' ? 'false' : 'true';
@@ -171,11 +171,11 @@ export const actions: Actions = {
 
 			return {
 				success: true,
-				message: newPinned === 'true' ? 'Boletín fijado' : 'Boletín desfijado'
+				message: newPinned === 'true' ? 'Noticia fijada' : 'Noticia desfijada'
 			};
 		} catch (e) {
 			console.error('Error toggling pin:', e);
-			return fail(500, { error: 'Error al cambiar el estado del boletín' });
+			return fail(500, { error: 'Error al cambiar el estado de la noticia' });
 		}
 	}
 };

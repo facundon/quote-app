@@ -13,7 +13,7 @@
 	}
 
 	let {
-		title = '✨ Crear Nuevo Boletín',
+		title = '✨ Crear Nueva Noticia',
 		isOpen = false,
 		isSubmitting = false,
 		employees = [],
@@ -57,7 +57,7 @@
 					required
 					minlength="3"
 					maxlength="200"
-					placeholder="Título del boletín"
+					placeholder="Título de la noticia"
 					bind:value={bulletinTitle}
 					class="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
 				/>
@@ -72,7 +72,7 @@
 				<textarea
 					id="description"
 					name="description"
-					placeholder="Descripción del boletín"
+					placeholder="Descripción de la noticia"
 					maxlength="500"
 					rows="4"
 					bind:value={description}
@@ -156,7 +156,7 @@
 					variant="primary"
 					disabled={isSubmitting || !bulletinTitle.trim()}
 				>
-					{isSubmitting ? '⏳ Creando...' : '🚀 Crear Boletín'}
+					{isSubmitting ? '⏳ Creando...' : '🚀 Crear Noticia'}
 				</ActionButton>
 			</div>
 		</form>
