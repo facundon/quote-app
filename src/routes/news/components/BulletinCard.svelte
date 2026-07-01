@@ -32,7 +32,7 @@
 </script>
 
 <div
-	class="rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+	class="flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
 	in:scale={{ duration: 300, easing: quintOut }}
 >
 	<!-- Header -->
@@ -79,7 +79,7 @@
 	{/if}
 
 	<!-- Content -->
-	<div class="px-6 py-4">
+	<div class="flex-1 px-6 py-4">
 		<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">{bulletin.title}</h3>
 		{#if bulletin.description}
 			<p class="text-sm text-gray-600">{bulletin.description}</p>
@@ -90,7 +90,7 @@
 	<div class="border-t border-gray-100 px-6 py-3">
 		<!-- Employees -->
 		{#if employees.length > 0}
-			<div class="mb-3 flex flex-wrap gap-2">
+			<div class="flex flex-wrap gap-2">
 				{#each employees as emp}
 					<div class="flex items-center gap-2">
 						<div
@@ -105,13 +105,19 @@
 						</span>
 					</div>
 				{/each}
+				<div class="ml-auto text-right">
+					<div class="text-xs text-gray-500">{formatDate(bulletin.created_at)}</div>
+					<div class="text-xs text-gray-400">{getTimeAgo(bulletin.created_at)}</div>
+				</div>
 			</div>
 		{/if}
 
 		<!-- Date/Time -->
-		<div class="text-right">
-			<div class="text-xs text-gray-500">{formatDate(bulletin.created_at)}</div>
-			<div class="text-xs text-gray-400">{getTimeAgo(bulletin.created_at)}</div>
-		</div>
+		{#if !employees.length}
+			<div class="text-right">
+				<div class="text-xs text-gray-500">{formatDate(bulletin.created_at)}</div>
+				<div class="text-xs text-gray-400">{getTimeAgo(bulletin.created_at)}</div>
+			</div>
+		{/if}
 	</div>
 </div>
