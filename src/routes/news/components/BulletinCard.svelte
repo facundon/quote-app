@@ -74,8 +74,12 @@
 	</div>
 
 	<!-- Image if present -->
-	{#if bulletin.image_url}
-		<img src={bulletin.image_url} alt={bulletin.title} class="h-32 w-full object-cover" />
+	{#if bulletin.image_path}
+		<img
+			src={`/boletines/${bulletin.image_path}`}
+			alt={bulletin.title}
+			class="h-64 w-full object-cover"
+		/>
 	{/if}
 
 	<!-- Content -->

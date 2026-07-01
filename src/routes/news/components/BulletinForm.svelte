@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ActionButton from '$lib/components/ActionButton.svelte';
+	import FilePicker from '$lib/components/FilePicker.svelte';
 	import { enhance } from '$app/forms';
 	import { parseEmployeesJson } from '../utils';
 	import type { Bulletin } from '$lib/server/db/schema';
@@ -26,15 +27,22 @@
 
 	let bulletinTitle = $state('');
 	let description = $state('');
-	let imageUrl = $state('');
+	let selectedFile = $state<File | null>(null);
+	let selectedFileName = $state<string | null>(null);
 	let selectedEmployees = $state<string[]>([]);
 	let isPinned = $state(false);
+
+	function handleFileSelected(file: File) {
+		selectedFile = file;
+		selectedFileName = file.name;
+	}
 
 	$effect(() => {
 		if (bulletin && action === 'edit') {
 			bulletinTitle = bulletin.title;
 			description = bulletin.description || '';
-			imageUrl = bulletin.image_url || '';
+			selectedFile = null;
+			selectedFileName = null;
 			selectedEmployees = parseEmployeesJson(bulletin.employees);
 			isPinned = bulletin.isPinned === 'true';
 		}
@@ -44,12 +52,14 @@
 <form
 	method="POST"
 	action="?/{action}"
+	enctype="multipart/form-data"
 	use:enhance={() => {
 		return async ({ result }) => {
 			if (result.type === 'success') {
 				bulletinTitle = '';
 				description = '';
-				imageUrl = '';
+				selectedFile = null;
+				selectedFileName = null;
 				selectedEmployees = [];
 				isPinned = false;
 				onSuccess?.();
@@ -96,19 +106,18 @@
 		<p class="mt-1 text-xs text-gray-500">{description.length}/500 caracteres</p>
 	</div>
 
-	<!-- Image URL -->
+	<!-- Image Upload -->
 	<div>
-		<label for="image_url" class="mb-2 block text-sm font-medium text-gray-700"
-			>URL de imagen (opcional)</label
-		>
-		<input
-			id="image_url"
-			type="url"
-			name="image_url"
-			placeholder="https://ejemplo.com/imagen.jpg"
-			bind:value={imageUrl}
-			class="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+		<label class="mb-2 block text-sm font-medium text-gray-700">Imagen (opcional)</label>
+		<FilePicker
+			id="image"
+			name="image"
+			accept=".jpg,.jpeg,.png,.gif,.webp"
+			placeholder="Seleccionar o arrastrar imagen"
+			{selectedFileName}
+			onFileSelected={handleFileSelected}
 		/>
+		<p class="mt-1 text-xs text-gray-500">Máximo 5 MB. Formatos: JPG, PNG, GIF, WebP</p>
 	</div>
 
 	<!-- Employees -->

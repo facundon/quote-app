@@ -50,6 +50,13 @@
       "when": 1766517000000,
       "tag": "0006_create_bulletin_table",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1766517001000,
+      "tag": "0007_rename_bulletin_image_column",
+      "breakpoints": true
     }
   ]
 }

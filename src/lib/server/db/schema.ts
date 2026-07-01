@@ -86,7 +86,7 @@ export const bulletin = sqliteTable('bulletin', {
 	id: integer('id').primaryKey(),
 	title: text('title').notNull(),
 	description: text('description'),
-	image_url: text('image_url'),
+	image_path: text('image_path'), // stored path like '123456/timestamp_filename.jpg', null if no image
 	employees: text('employees'), // JSON array string like '["Milton", "Lore"]'
 	isPinned: text('isPinned').notNull().default('false'), // 'true' or 'false'
 	created_at: text('created_at')

@@ -1,14 +1,46 @@
-import { sqlite } from '$lib/server/db';
-import type { Bulletin } from '$lib/server/db/schema';
+import { db } from '$lib/server/db';
+import { bulletin } from '$lib/server/db/schema';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { EMPLOYEES } from '../../_shared/employees';
 import { stringifyEmployeesJson } from './utils';
+import { desc, eq } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
+import { writeFile, unlink } from 'fs/promises';
+import {
+	sanitizeFileName,
+	getExtensionFromMimeType,
+	resolveBoletinesFileFromStoredPath
+} from '$lib/server/boletines/storage';
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+function validateImageFile(file: File): { valid: boolean; error?: string } {
+	if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+		return {
+			valid: false,
+			error: 'Formato de archivo no soportado. Usa JPEG, PNG, GIF o WebP.'
+		};
+	}
+	if (file.size > MAX_FILE_SIZE) {
+		return { valid: false, error: 'El archivo es muy grande. Máximo 5 MB.' };
+	}
+	return { valid: true };
+}
+
+function ensureDirExists(dirPath: string): void {
+	if (!fs.existsSync(dirPath)) {
+		fs.mkdirSync(dirPath, { recursive: true });
+	}
+}
 
 export const load: PageServerLoad = async () => {
-	const bulletins = sqlite
-		.prepare('SELECT * FROM bulletin ORDER BY isPinned DESC, created_at DESC')
-		.all() as Bulletin[];
+	const bulletins = await db
+		.select()
+		.from(bulletin)
+		.orderBy(desc(bulletin.isPinned), desc(bulletin.created_at));
 
 	return {
 		bulletins,
@@ -22,7 +54,7 @@ export const actions: Actions = {
 
 		const title = (formData.get('title') as string)?.trim();
 		const description = (formData.get('description') as string)?.trim() || null;
-		const image_url = (formData.get('image_url') as string)?.trim() || null;
+		const imageFile = formData.get('image') as File | null;
 		const isPinned = formData.get('isPinned') === 'on' ? 'true' : 'false';
 		const employeesList = formData.getAll('employees') as string[];
 
@@ -44,12 +76,32 @@ export const actions: Actions = {
 			}
 		}
 
-		// Validate image URL if provided
-		if (image_url) {
+		let imagePath: string | null = null;
+
+		// Handle file upload if provided
+		if (imageFile && imageFile.size > 0) {
+			const validation = validateImageFile(imageFile);
+			if (!validation.valid) {
+				return fail(400, { error: validation.error });
+			}
+
 			try {
-				new URL(image_url);
-			} catch {
-				return fail(400, { error: 'URL de imagen inválida' });
+				const buffer = await imageFile.arrayBuffer();
+				const timestamp = Date.now();
+				const ext = getExtensionFromMimeType(imageFile.type);
+				const sanitizedName = sanitizeFileName(imageFile.name.replace(/\.[^.]+$/, '') || 'image');
+				const fileName = `${timestamp}_${sanitizedName}${ext}`;
+				const relativeDir = `${Math.floor(Math.random() * 1000000)}`;
+				const relativePath = `${relativeDir}/${fileName}`;
+				const fullPath = resolveBoletinesFileFromStoredPath(relativePath);
+
+				ensureDirExists(path.dirname(fullPath));
+				await writeFile(fullPath, new Uint8Array(buffer));
+
+				imagePath = relativePath;
+			} catch (e) {
+				console.error('Error handling image upload:', e);
+				return fail(500, { error: 'Error al procesar la imagen' });
 			}
 		}
 
@@ -57,12 +109,13 @@ export const actions: Actions = {
 			const now = new Date().toISOString();
 			const employees = stringifyEmployeesJson(employeesList);
 
-			sqlite
-				.prepare(
-					`INSERT INTO bulletin (title, description, image_url, employees, isPinned, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?)`
-				)
-				.run(title, description, image_url, employees, isPinned, now, now);
+			await db.insert(bulletin).values({
+				title,
+				description: description || undefined,
+				image_path: imagePath,
+				employees: employees || undefined,
+				isPinned
+			});
 
 			return { success: true, message: 'Noticia creada correctamente' };
 		} catch (e) {
@@ -77,7 +130,7 @@ export const actions: Actions = {
 		const id = parseInt(formData.get('id') as string);
 		const title = (formData.get('title') as string)?.trim();
 		const description = (formData.get('description') as string)?.trim() || null;
-		const image_url = (formData.get('image_url') as string)?.trim() || null;
+		const imageFile = formData.get('image') as File | null;
 		const isPinned = formData.get('isPinned') === 'on' ? 'true' : 'false';
 		const employeesList = formData.getAll('employees') as string[];
 
@@ -101,24 +154,69 @@ export const actions: Actions = {
 			}
 		}
 
-		if (image_url) {
-			try {
-				new URL(image_url);
-			} catch {
-				return fail(400, { error: 'URL de imagen inválida' });
-			}
-		}
-
 		try {
+			// Get existing bulletin to check for old image
+			const existingBulletin = await db
+				.select({ image_path: bulletin.image_path })
+				.from(bulletin)
+				.where(eq(bulletin.id, id));
+
+			if (!existingBulletin.length) {
+				return fail(404, { error: 'Noticia no encontrada' });
+			}
+
+			let imagePath: string | null = existingBulletin[0].image_path;
+
+			// Handle file upload if new file provided
+			if (imageFile && imageFile.size > 0) {
+				const validation = validateImageFile(imageFile);
+				if (!validation.valid) {
+					return fail(400, { error: validation.error });
+				}
+
+				try {
+					// Delete old image if it exists
+					if (existingBulletin[0].image_path) {
+						const oldPath = resolveBoletinesFileFromStoredPath(existingBulletin[0].image_path);
+						if (fs.existsSync(oldPath)) {
+							await unlink(oldPath);
+						}
+					}
+
+					// Write new image
+					const buffer = await imageFile.arrayBuffer();
+					const timestamp = Date.now();
+					const ext = getExtensionFromMimeType(imageFile.type);
+					const sanitizedName = sanitizeFileName(imageFile.name.replace(/\.[^.]+$/, '') || 'image');
+					const fileName = `${timestamp}_${sanitizedName}${ext}`;
+					const relativeDir = `${Math.floor(Math.random() * 1000000)}`;
+					const relativePath = `${relativeDir}/${fileName}`;
+					const fullPath = resolveBoletinesFileFromStoredPath(relativePath);
+
+					ensureDirExists(path.dirname(fullPath));
+					await writeFile(fullPath, new Uint8Array(buffer));
+
+					imagePath = relativePath;
+				} catch (e) {
+					console.error('Error handling image upload:', e);
+					return fail(500, { error: 'Error al procesar la imagen' });
+				}
+			}
+
 			const now = new Date().toISOString();
 			const employees = stringifyEmployeesJson(employeesList);
 
-			sqlite
-				.prepare(
-					`UPDATE bulletin SET title = ?, description = ?, image_url = ?, employees = ?, isPinned = ?, updated_at = ?
-					WHERE id = ?`
-				)
-				.run(title, description, image_url, employees, isPinned, now, id);
+			await db
+				.update(bulletin)
+				.set({
+					title,
+					description: description || undefined,
+					image_path: imagePath,
+					employees: employees || undefined,
+					isPinned,
+					updated_at: now
+				})
+				.where(eq(bulletin.id, id));
 
 			return { success: true, message: 'Noticia actualizada correctamente' };
 		} catch (e) {
@@ -136,7 +234,21 @@ export const actions: Actions = {
 		}
 
 		try {
-			sqlite.prepare('DELETE FROM bulletin WHERE id = ?').run(id);
+			// Get image path before deleting
+			const bulletins = await db
+				.select({ image_path: bulletin.image_path })
+				.from(bulletin)
+				.where(eq(bulletin.id, id));
+
+			// Delete image file if it exists
+			if (bulletins.length && bulletins[0].image_path) {
+				const imagePath = resolveBoletinesFileFromStoredPath(bulletins[0].image_path);
+				if (fs.existsSync(imagePath)) {
+					await unlink(imagePath);
+				}
+			}
+
+			await db.delete(bulletin).where(eq(bulletin.id, id));
 			return { success: true, message: 'Noticia eliminada correctamente' };
 		} catch (e) {
 			console.error('Error deleting bulletin:', e);
@@ -154,20 +266,22 @@ export const actions: Actions = {
 
 		try {
 			// Get current isPinned value
-			const bulletin = sqlite.prepare('SELECT isPinned FROM bulletin WHERE id = ?').get(id) as
-				| { isPinned: string }
-				| undefined;
+			const bulletins = await db
+				.select({ isPinned: bulletin.isPinned })
+				.from(bulletin)
+				.where(eq(bulletin.id, id));
 
-			if (!bulletin) {
+			if (!bulletins.length) {
 				return fail(404, { error: 'Noticia no encontrada' });
 			}
 
-			const newPinned = bulletin.isPinned === 'true' ? 'false' : 'true';
+			const newPinned = bulletins[0].isPinned === 'true' ? 'false' : 'true';
 			const now = new Date().toISOString();
 
-			sqlite
-				.prepare('UPDATE bulletin SET isPinned = ?, updated_at = ? WHERE id = ?')
-				.run(newPinned, now, id);
+			await db
+				.update(bulletin)
+				.set({ isPinned: newPinned, updated_at: now })
+				.where(eq(bulletin.id, id));
 
 			return {
 				success: true,
