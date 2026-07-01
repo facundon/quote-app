@@ -5,6 +5,11 @@
 
 	const navItems = [
 		{
+			label: 'Boletines',
+			href: '/news',
+			icon: '📰'
+		},
+		{
 			label: 'Presupuestador',
 			href: '/presupuesto',
 			icon: '📊'

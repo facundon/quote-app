@@ -11,5 +11,6 @@ export const EMPLOYEES: string[] = [
 	'Doc',
 	'Fiore',
 	'Juana',
-	'Clau'
+	'Clau',
+	'Brau'
 ];

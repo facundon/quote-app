@@ -82,6 +82,21 @@ export const instruction = sqliteTable('instruction', {
 		.default(sql`CURRENT_TIMESTAMP`)
 });
 
+export const bulletin = sqliteTable('bulletin', {
+	id: integer('id').primaryKey(),
+	title: text('title').notNull(),
+	description: text('description'),
+	image_url: text('image_url'),
+	employees: text('employees'), // JSON array string like '["Milton", "Lore"]'
+	isPinned: text('isPinned').notNull().default('false'), // 'true' or 'false'
+	created_at: text('created_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updated_at: text('updated_at')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`)
+});
+
 // TypeScript types for type safety
 export type Category = InferSelectModel<typeof category>;
 export type CategoryInsert = InferInsertModel<typeof category>;
@@ -103,3 +118,6 @@ export type TicketInsert = InferInsertModel<typeof ticket>;
 
 export type Instruction = InferSelectModel<typeof instruction>;
 export type InstructionInsert = InferInsertModel<typeof instruction>;
+
+export type Bulletin = InferSelectModel<typeof bulletin>;
+export type BulletinInsert = InferInsertModel<typeof bulletin>;

@@ -33,7 +33,7 @@
 	let prioridadFilter = $state('all');
 	let searchTerm = $state('');
 	let selectedView = $state<'grid' | 'list'>('grid');
-	let empleadoFilter = $state('');
+	let employeeFilter = $state('');
 
 	// Estados para el formulario
 	let isSubmitting = $state(false);
@@ -58,12 +58,12 @@
 			filtered = filtered.filter((ticket) => ticket.priority === prioridadFilter);
 		}
 
-		if (empleadoFilter) {
-			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
+		if (employeeFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === employeeFilter);
 		}
 
-		if (empleadoFilter) {
-			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
+		if (employeeFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === employeeFilter);
 		}
 
 		if (searchTerm) {
@@ -87,8 +87,8 @@
 			filtered = filtered.filter((ticket) => ticket.priority === prioridadFilter);
 		}
 
-		if (empleadoFilter) {
-			filtered = filtered.filter((ticket) => (ticket.assignee || '') === empleadoFilter);
+		if (employeeFilter) {
+			filtered = filtered.filter((ticket) => (ticket.assignee || '') === employeeFilter);
 		}
 
 		if (searchTerm) {
@@ -153,7 +153,7 @@
 		statusFilter = 'all';
 		prioridadFilter = 'all';
 		searchTerm = '';
-		empleadoFilter = '';
+		employeeFilter = '';
 	}
 
 	// Función para confirmar eliminación
@@ -253,7 +253,7 @@
 		<!-- Filtros y búsqueda -->
 		<FiltersBar
 			bind:searchTerm
-			bind:empleadoFilter
+			bind:employeeFilter
 			bind:prioridadFilter
 			bind:statusFilter
 			employees={data.employees}

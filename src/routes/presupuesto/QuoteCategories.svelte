@@ -56,20 +56,30 @@
 						oninput={(e: Event) => handleInputChange(e, cat.id)}
 						onfocus={selectAll}
 						onclick={selectAll}
+						onkeydown={(e: KeyboardEvent) => {
+							if (e.key === 'ArrowUp') {
+								increment(cat.id);
+							}
+							if (e.key === 'ArrowDown') {
+								decrement(cat.id);
+							}
+						}}
 						class="w-16 rounded-lg border border-slate-300 px-2 py-1 text-center text-xs transition focus:ring-2 focus:ring-blue-400 focus:outline-none"
 					/>
 					<div class="flex flex-col gap-0">
 						<button
 							type="button"
+							tabIndex={-1}
 							onclick={() => increment(cat.id)}
-							class="h-4 w-5 flex items-center justify-center rounded-t border border-slate-300 border-b-0 bg-slate-100 text-xs leading-none text-slate-600 hover:bg-slate-200 transition"
+							class="flex h-4 w-5 items-center justify-center rounded-t border border-b-0 border-slate-300 bg-slate-100 text-xs leading-none text-slate-600 transition hover:bg-slate-200"
 						>
 							▲
 						</button>
 						<button
 							type="button"
+							tabIndex={-1}
 							onclick={() => decrement(cat.id)}
-							class="h-4 w-5 flex items-center justify-center rounded-b border border-slate-300 bg-slate-100 text-xs leading-none text-slate-600 hover:bg-slate-200 transition"
+							class="flex h-4 w-5 items-center justify-center rounded-b border border-slate-300 bg-slate-100 text-xs leading-none text-slate-600 transition hover:bg-slate-200"
 						>
 							▼
 						</button>

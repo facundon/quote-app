@@ -1,1 +1,2 @@
-Se agrego flechita al lado de cada estudio para incrementar y decrementar la cantidad.
+Se agrego la pantalla de Noticias.
+Se arreglo sumar y restar estudios con flechitas.

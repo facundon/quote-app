@@ -99,6 +99,9 @@ function hasColumn(tableName: string, columnName: string): boolean {
 
 function inferLastAppliedMigrationTag(journal: Journal): string | null {
 	// Highest known schema state wins.
+	if (hasTable('bulletin')) {
+		return journal.entries.findLast((e) => e.tag.startsWith('0006_'))?.tag ?? null;
+	}
 	if (hasColumn('invoice', 'receipt_email_sent_at')) {
 		return journal.entries.findLast((e) => e.tag.startsWith('0005_'))?.tag ?? null;
 	}

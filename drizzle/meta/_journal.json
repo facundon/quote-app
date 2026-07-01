@@ -43,6 +43,13 @@
       "when": 1766416628022,
       "tag": "0005_calm_stardust",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1766517000000,
+      "tag": "0006_create_bulletin_table",
+      "breakpoints": true
     }
   ]
 }
