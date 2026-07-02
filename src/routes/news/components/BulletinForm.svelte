@@ -27,24 +27,19 @@
 
 	let bulletinTitle = $state('');
 	let description = $state('');
-	let selectedFile = $state<File | null>(null);
 	let selectedFileName = $state<string | null>(null);
 	let selectedEmployees = $state<string[]>([]);
 	let isPinned = $state(false);
-
-	function handleFileSelected(file: File) {
-		selectedFile = file;
-		selectedFileName = file.name;
-	}
+	let error = $state('');
 
 	$effect(() => {
 		if (bulletin && action === 'edit') {
 			bulletinTitle = bulletin.title;
 			description = bulletin.description || '';
-			selectedFile = null;
 			selectedFileName = null;
 			selectedEmployees = parseEmployeesJson(bulletin.employees);
 			isPinned = bulletin.isPinned === 'true';
+			error = '';
 		}
 	});
 </script>
@@ -58,11 +53,14 @@
 			if (result.type === 'success') {
 				bulletinTitle = '';
 				description = '';
-				selectedFile = null;
 				selectedFileName = null;
 				selectedEmployees = [];
 				isPinned = false;
 				onSuccess?.();
+				error = '';
+			}
+			if (result.type === 'failure') {
+				error = String(result.data?.error);
 			}
 		};
 	}}
@@ -91,31 +89,30 @@
 
 	<!-- Description -->
 	<div>
-		<label for="description" class="mb-2 block text-sm font-medium text-gray-700"
-			>Descripción</label
+		<label for="description" class="mb-2 block text-sm font-medium text-gray-700">Descripción</label
 		>
 		<textarea
 			id="description"
 			name="description"
 			placeholder="Descripción del boletín"
-			maxlength="500"
+			maxlength="1000"
 			rows="4"
 			bind:value={description}
 			class="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
 		></textarea>
-		<p class="mt-1 text-xs text-gray-500">{description.length}/500 caracteres</p>
+		<p class="mt-1 text-xs text-gray-500">{description.length}/1000 caracteres</p>
 	</div>
 
 	<!-- Image Upload -->
 	<div>
-		<label class="mb-2 block text-sm font-medium text-gray-700">Imagen (opcional)</label>
+		<label class="mb-2 block text-sm font-medium text-gray-700" for="image">Imagen (opcional)</label
+		>
 		<FilePicker
 			id="image"
 			name="image"
 			accept=".jpg,.jpeg,.png,.gif,.webp"
 			placeholder="Seleccionar o arrastrar imagen"
 			{selectedFileName}
-			onFileSelected={handleFileSelected}
 		/>
 		<p class="mt-1 text-xs text-gray-500">Máximo 5 MB. Formatos: JPG, PNG, GIF, WebP</p>
 	</div>
@@ -151,6 +148,10 @@
 		</div>
 	</fieldset>
 
+	{#if error}
+		<p class="mt-6 mb-0 text-sm text-red-400">{error}</p>
+	{/if}
+
 	<!-- Actions -->
 	<div class="flex justify-end gap-2 pt-4">
 		<!-- Pin Checkbox -->
@@ -178,11 +179,7 @@
 		>
 			Cancelar
 		</button>
-		<ActionButton
-			type="submit"
-			variant="primary"
-			disabled={isSubmitting || !bulletinTitle.trim()}
-		>
+		<ActionButton type="submit" variant="primary" disabled={isSubmitting || !bulletinTitle.trim()}>
 			{isSubmitting ? '⏳ ' : ''}{submitLabel}
 		</ActionButton>
 	</div>

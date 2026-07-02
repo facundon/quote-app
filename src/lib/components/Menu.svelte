@@ -5,10 +5,11 @@
 		label: string;
 		icon?: string;
 		color?: string;
+		isHidden?: boolean;
 		callback: () => void;
 	};
 
-	let { open = false, options = [] as MenuOption[] } = $props();
+	let { open = false, options = [] as MenuOption[], isHidden = false } = $props();
 
 	let menuButton: HTMLButtonElement | null = null;
 	let menuPanel: HTMLDivElement | null = $state(null);
@@ -158,7 +159,7 @@
 	<button
 		bind:this={menuButton}
 		type="button"
-		class="flex h-8 w-8 items-center justify-center cursor-pointer rounded-full hover:bg-gray-100"
+		class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-gray-100"
 		aria-label="Acciones"
 		aria-haspopup="menu"
 		aria-expanded={isOpen}
@@ -185,13 +186,13 @@
 	<div
 		bind:this={menuPanel}
 		id="menu-panel"
-		class="fixed z-[9999] rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none min-w-[200px]"
+		class="fixed z-[9999] min-w-[200px] rounded-lg border border-gray-100 bg-white shadow-xl focus:outline-none"
 		style="top: {menuPosition.top}px; left: {menuPosition.left}px; pointer-events: auto;"
 		role="menu"
 		tabindex="-1"
 		onkeydown={handleMenuKeydown}
 	>
-		{#each options as option}
+		{#each options.filter((o) => !o.isHidden) as option}
 			<button
 				type="button"
 				class="flex w-full items-center px-4 py-3 text-sm transition-colors duration-150 hover:bg-gray-50 {option.color ||

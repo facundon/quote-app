@@ -7,9 +7,10 @@
 		onEdit?: (bulletin: Bulletin) => void;
 		onDelete?: (id: number) => void;
 		onTogglePin?: (id: number) => void;
+		onDeleteImage?: (id: number) => void;
 	}
 
-	let { bulletins = [], onEdit, onDelete, onTogglePin }: Props = $props();
+	let { bulletins = [], onEdit, onDelete, onTogglePin, onDeleteImage }: Props = $props();
 </script>
 
 {#if bulletins.length > 0}
@@ -18,7 +19,7 @@
 		<div class="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6 shadow-md">
 			<div class="grid gap-4 md:grid-cols-2">
 				{#each bulletins as b (b.id)}
-					<BulletinCard bulletin={b} {onEdit} {onDelete} {onTogglePin} />
+					<BulletinCard bulletin={b} {onEdit} {onDelete} {onTogglePin} {onDeleteImage} />
 				{/each}
 			</div>
 		</div>

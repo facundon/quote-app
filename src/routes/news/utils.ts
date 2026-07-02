@@ -1,3 +1,5 @@
+import type { Bulletin } from '$lib/server/db/schema';
+
 export type PeriodFilter = 'day' | 'three-days' | 'week' | 'two-weeks' | 'month';
 
 export interface DateRange {
@@ -93,17 +95,17 @@ export function getEmployeeColor(name: string): string {
 }
 
 export function applyFilters(
-	bulletins: any[],
+	bulletins: Bulletin[],
 	period: PeriodFilter,
 	searchTerm: string,
 	employeeFilter: string
-): any[] {
+): Bulletin[] {
 	const { start, end } = getPeriodDateRange(period);
 
 	return bulletins
 		.filter((b) => {
 			const itemDate = new Date(b.created_at);
-			return itemDate >= start && itemDate <= end;
+			return itemDate >= start;
 		})
 		.filter((b) => {
 			if (!searchTerm) return true;
@@ -128,5 +130,5 @@ export const periodOptions = [
 	{ value: 'three-days', label: '3 días' },
 	{ value: 'week', label: 'Semana' },
 	{ value: 'two-weeks', label: '2 semanas' },
-	{ value: 'month', label: 'Mes' }
+	{ value: 'month', label: '1 Mes' }
 ];

@@ -65,8 +65,8 @@ export const actions: Actions = {
 		if (title.length > 200) {
 			return fail(400, { error: 'El título no puede exceder 200 caracteres' });
 		}
-		if (description && description.length > 500) {
-			return fail(400, { error: 'La descripción no puede exceder 500 caracteres' });
+		if (description && description.length > 1000) {
+			return fail(400, { error: 'La descripción no puede exceder 1000 caracteres' });
 		}
 
 		// Validate employees
@@ -106,7 +106,6 @@ export const actions: Actions = {
 		}
 
 		try {
-			const now = new Date().toISOString();
 			const employees = stringifyEmployeesJson(employeesList);
 
 			await db.insert(bulletin).values({
@@ -144,8 +143,8 @@ export const actions: Actions = {
 		if (title.length > 200) {
 			return fail(400, { error: 'El título no puede exceder 200 caracteres' });
 		}
-		if (description && description.length > 500) {
-			return fail(400, { error: 'La descripción no puede exceder 500 caracteres' });
+		if (description && description.length > 1000) {
+			return fail(400, { error: 'La descripción no puede exceder 1000 caracteres' });
 		}
 
 		for (const emp of employeesList) {
@@ -286,6 +285,32 @@ export const actions: Actions = {
 			return {
 				success: true,
 				message: newPinned === 'true' ? 'Noticia fijada' : 'Noticia desfijada'
+			};
+		} catch (e) {
+			console.error('Error toggling pin:', e);
+			return fail(500, { error: 'Error al cambiar el estado de la noticia' });
+		}
+	},
+
+	deleteImage: async ({ request }) => {
+		const formData = await request.formData();
+		const id = parseInt(formData.get('id') as string);
+
+		if (!id || isNaN(id)) {
+			return fail(400, { error: 'ID inválido' });
+		}
+
+		try {
+			const now = new Date().toISOString();
+
+			await db
+				.update(bulletin)
+				.set({ image_path: null, updated_at: now })
+				.where(eq(bulletin.id, id));
+
+			return {
+				success: true,
+				message: 'Imagen eliminada'
 			};
 		} catch (e) {
 			console.error('Error toggling pin:', e);

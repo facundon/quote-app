@@ -23,9 +23,10 @@
 		onEdit?: (bulletin: Bulletin) => void;
 		onDelete?: (id: number) => void;
 		onTogglePin?: (id: number) => void;
+		onDeleteImage?: (id: number) => void;
 	}
 
-	let { bulletin, onEdit, onDelete, onTogglePin, noOptions }: Props = $props();
+	let { bulletin, onEdit, onDelete, onTogglePin, noOptions, onDeleteImage }: Props = $props();
 
 	const employees = $derived(parseEmployeesJson(bulletin.employees));
 	const isPinned = $derived(bulletin.isPinned === 'true');
@@ -63,6 +64,13 @@
 						callback: () => onTogglePin?.(bulletin.id)
 					},
 					{
+						label: 'Eliminar Imagen',
+						icon: '❌',
+						color: 'text-red-400',
+						callback: () => onDeleteImage?.(bulletin.id),
+						isHidden: !bulletin.image_path
+					},
+					{
 						label: 'Eliminar',
 						icon: '🗑️',
 						color: 'text-red-600',
@@ -86,7 +94,7 @@
 	<div class="flex-1 px-6 py-4">
 		<h3 class="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">{bulletin.title}</h3>
 		{#if bulletin.description}
-			<p class="text-sm text-gray-600">{bulletin.description}</p>
+			<p class="text-sm break-words whitespace-pre-line text-gray-600">{bulletin.description}</p>
 		{/if}
 	</div>
 

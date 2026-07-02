@@ -8,6 +8,7 @@
 	import BulletinCreateModal from './components/BulletinCreateModal.svelte';
 	import BulletinEditModal from './components/BulletinEditModal.svelte';
 	import type { Bulletin } from '$lib/server/db/schema';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface PageData {
 		bulletins: Bulletin[];
@@ -25,19 +26,17 @@
 	let searchTerm = $state('');
 	let employeeFilter = $state('');
 
-	let bulletins = $state(data.bulletins);
+	let bulletins = $derived(data.bulletins);
 
-	// Update bulletins when data changes
-	$effect(() => {
-		bulletins = data.bulletins;
-	});
+	let actionToBeConfirmed = $state('');
+	let callbackAfterConfirmation = $state<(() => void) | null>(null);
 
-	let filtered = $derived(() => {
+	let filtered = $derived.by(() => {
 		return applyFilters(bulletins, periodFilter, searchTerm, employeeFilter);
 	});
 
-	let pinnedBulletins = $derived(filtered().filter((b) => b.isPinned === 'true'));
-	let unpinnedBulletins = $derived(filtered().filter((b) => b.isPinned !== 'true'));
+	let pinnedBulletins = $derived(filtered.filter((b) => b.isPinned === 'true'));
+	let unpinnedBulletins = $derived(filtered.filter((b) => b.isPinned !== 'true'));
 
 	function handleCreateClick() {
 		showCreateModal = true;
@@ -57,6 +56,11 @@
 		editingBulletin = null;
 	}
 
+	function onConfirmationEnd() {
+		actionToBeConfirmed = '';
+		callbackAfterConfirmation = null;
+	}
+
 	async function handleDeleteBulletin(id: number) {
 		if (!confirm('¿Estás seguro de que quieres eliminar esta noticia?')) return;
 
@@ -64,6 +68,28 @@
 		form.append('id', id.toString());
 
 		const response = await fetch('?/delete', {
+			method: 'POST',
+			body: form
+		});
+
+		if (response.ok) {
+			await invalidateAll();
+		}
+	}
+
+	function onCheckConfirmation(action: string, callback: () => void) {
+		actionToBeConfirmed = action;
+		callbackAfterConfirmation = () => {
+			onConfirmationEnd();
+			callback();
+		};
+	}
+
+	async function handleDeleteImage(id: number) {
+		const form = new FormData();
+		form.append('id', id.toString());
+
+		const response = await fetch('?/deleteImage', {
 			method: 'POST',
 			body: form
 		});
@@ -127,12 +153,13 @@
 	<FeaturedSection
 		bulletins={pinnedBulletins}
 		onEdit={handleEditClick}
-		onDelete={handleDeleteBulletin}
 		onTogglePin={handleTogglePinBulletin}
+		onDelete={(id) => onCheckConfirmation('Borrar noticia', () => handleDeleteBulletin(id))}
+		onDeleteImage={(id) => onCheckConfirmation('Borrar imagen', () => handleDeleteImage(id))}
 	/>
 
 	<!-- Main Grid -->
-	{#if filtered().length === 0}
+	{#if filtered.length === 0}
 		<div class="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
 			<div class="mb-4 text-6xl">🗞️</div>
 			{#if bulletins.length === 0}
@@ -159,8 +186,9 @@
 		<BulletinGrid
 			bulletins={unpinnedBulletins}
 			onEdit={handleEditClick}
-			onDelete={handleDeleteBulletin}
 			onTogglePin={handleTogglePinBulletin}
+			onDelete={(id) => onCheckConfirmation('Borrar noticia', () => handleDeleteBulletin(id))}
+			onDeleteImage={(id) => onCheckConfirmation('Borrar imagen', () => handleDeleteImage(id))}
 		/>
 	{/if}
 </main>
@@ -182,3 +210,29 @@
 	onClose={handleCloseEditModal}
 	onSuccess={handleSuccess}
 />
+
+<Modal
+	title="Confirmar {actionToBeConfirmed}"
+	show={!!actionToBeConfirmed}
+	onClose={onConfirmationEnd}
+>
+	<div class="space-center">
+		<p>Estas seguro que deseas {actionToBeConfirmed}?</p>
+	</div>
+	<div class="flex justify-end space-x-3">
+		<button
+			type="button"
+			onclick={onConfirmationEnd}
+			class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			Cancelar
+		</button>
+		<button
+			type="button"
+			onclick={callbackAfterConfirmation}
+			class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			{actionToBeConfirmed}
+		</button>
+	</div>
+</Modal>
