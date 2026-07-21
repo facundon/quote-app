@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { marked } from 'marked';
 	import VoiceRecorder from './assistant/VoiceRecorder.svelte';
+	import StatusBadge from './assistant/StatusBadge.svelte';
 
 	marked.setOptions({
 		breaks: true,
@@ -77,6 +78,7 @@
 	let pendingAudio = $state<{ data: string; type: string } | null>(null);
 	let isRecording = $state(false);
 	let input = $state('');
+	let statusText = $state('');
 
 	function openImageZoom(imageData: string, imageType: string) {
 		zoomedImage = { data: imageData, type: imageType };
@@ -165,6 +167,53 @@
 		pendingAudio = null;
 	}
 
+	async function processEvent(reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>) {
+		const decoder = new TextDecoder();
+		const userMessageIndex = messages.length - 1;
+		const assistantIndex = messages.length - 1;
+		let buffer = '';
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split('\n');
+			buffer = lines.pop() ?? '';
+
+			for (const line of lines) {
+				if (!line.trim()) continue;
+				try {
+					const event = JSON.parse(line);
+
+					switch (event.type) {
+						case 'status':
+							statusText = event.data;
+							break;
+
+						case 'transcript':
+							messages[userMessageIndex].transcript = event.data.transcript;
+							break;
+
+						case 'text-delta':
+							messages[assistantIndex].content += event.data;
+							break;
+
+						case 'finish':
+							messages[assistantIndex].usage = event.data.usage;
+							break;
+
+						case 'error':
+							error = event.data;
+							break;
+					}
+				} catch (err) {
+					console.error('Error parseando fragmento NDJSON:', err, line);
+				}
+			}
+		}
+	}
+
 	async function sendMessage() {
 		const hasImage = !!pendingImage;
 		const hasAudio = !!pendingAudio;
@@ -179,15 +228,19 @@
 		pendingImage = null;
 		pendingAudio = null;
 
-		const userMessage: Message = {
+		messages.push({
 			role: 'user',
 			content: messageText,
 			...(messageImage && { image: messageImage.data, imageType: messageImage.type }),
 			...(messageAudio && { audio: messageAudio.data, audioType: messageAudio.type })
-		};
+		});
 
-		const userMessageIndex = messages.length;
-		messages = [...messages, userMessage];
+		messages.push({
+			role: 'assistant',
+			content: ''
+		});
+		const assistantIndex = messages.length - 1;
+
 		isLoading = true;
 
 		try {
@@ -197,23 +250,23 @@
 				body: JSON.stringify({ messages })
 			});
 
-			const data = await res.json();
-
 			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
 				error = data.error || 'Error al procesar el mensaje';
+				messages.pop();
 				return;
 			}
 
-			if (data.transcript) {
-				messages = messages.map((m, i) =>
-					i === userMessageIndex ? { ...m, transcript: data.transcript } : m
-				);
-			}
-
-			messages = [...messages, { role: 'assistant', content: data.response, usage: data.usage }];
+			if (!res.body) throw new Error('No se recibió stream del servidor');
+			const reader = res.body.getReader();
+			await processEvent(reader);
+			statusText = '';
 		} catch (e) {
 			error = 'Error de conexión';
 			console.error(e);
+			if (!messages[assistantIndex].content) {
+				messages.pop();
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -286,6 +339,7 @@
 								<div class="prose prose-sm max-w-none">
 									{@html renderMarkdown(msg.content)}
 								</div>
+								<StatusBadge {statusText} />
 							{:else}
 								<p class="text-sm whitespace-pre-wrap">{msg.content}</p>
 							{/if}
@@ -295,7 +349,7 @@
 										? 'text-blue-100'
 										: 'text-slate-500'}"
 								>
-									Escuchamos: "{msg.transcript}"
+									"{msg.transcript}"
 								</p>
 							{/if}
 							{#if msg.usage}

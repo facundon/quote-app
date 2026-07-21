@@ -14,26 +14,27 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'messages array is required' }, { status: 400 });
 	}
 
-	try {
-		const result = await processConversation(messages);
-
-		return json({
-			response: result.response,
-			quote: result.quote,
-			transcript: result.transcript,
-			usage: result.usage
-		});
-	} catch (error) {
-		console.error('Chat API error:', error);
-
-		if (error instanceof Error) {
-			// Check for configuration errors
-			if (error.message.includes('not configured')) {
-				return json({ error: error.message }, { status: 500 });
+	const stream = new ReadableStream({
+		async start(controller) {
+			try {
+				await processConversation(messages, controller);
+			} catch (error) {
+				console.error('Error en la lógica del stream:', error);
+				controller.error(error);
+			} finally {
+				controller.close();
 			}
-			return json({ error: `API error: ${error.message}` }, { status: 500 });
+		},
+		cancel() {
+			console.log('El cliente canceló la generación.');
+			//TODO: add abort signal
 		}
+	});
 
-		return json({ error: 'Internal server error' }, { status: 500 });
-	}
+	return new Response(stream, {
+		headers: {
+			'Content-Type': 'application/x-ndjson; charset=utf-8',
+			'Cache-Control': 'no-cache'
+		}
+	});
 };

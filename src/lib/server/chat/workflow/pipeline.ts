@@ -12,7 +12,7 @@ import { convertUsdToArs, getUsdToArsRate } from '$lib/server/exchange/usdToArs'
 import { ExtractionAgent, type ExtractionResult } from './extraction';
 import { mapStudies, type MappingWorkflowResult } from './mapping';
 import { getQuoteAgent } from './quote';
-import type { PipelineResponse, QuoteResult, TokenUsage } from './types';
+import { ChatEventType, type PipelineResponse, type QuoteResult, type TokenUsage } from './types';
 
 /**
  * Singleton ExtractionAgent instance for the app's pipeline.
@@ -74,14 +74,32 @@ function addToCost(totalUsage: PipelineUsage, usage: TokenUsage, cost: number | 
  * Process a single message through the agent pipeline.
  * This is the main entry point for quote generation.
  */
-export async function processMessage(message: ChatMessage): Promise<PipelineResponse> {
+export async function processMessage(
+	message: ChatMessage,
+	controller: ReadableStreamDefaultController
+): Promise<PipelineResponse> {
+	const encoder = new TextEncoder();
+
+	const emit = (type: ChatEventType | string, data: any) => {
+		const payload = JSON.stringify({ type, data }) + '\n';
+		controller.enqueue(encoder.encode(payload));
+	};
+
 	const extractionAgent = getExtractionAgent();
 	const quoteAgent = getQuoteAgent();
 
 	const totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
-	// Stage 1: Extract studies from input
 	console.log('[Pipeline] Stage 1: Extraction');
+
+	if (message.audio) {
+		emit(ChatEventType.STATUS, 'Escuchando y transcribiendo nota de voz...');
+	} else if (message.image) {
+		emit(ChatEventType.STATUS, 'Analizando la imagen enviada...');
+	} else {
+		emit(ChatEventType.STATUS, 'Procesando tu consulta...');
+	}
+
 	const extractionResult: ExtractionResult = await extractionAgent.extract({
 		text: message.content,
 		image: message.image,
@@ -90,38 +108,58 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 		audioType: message.audioType
 	});
 
+	if (extractionResult.transcript) {
+		emit(ChatEventType.TRANSCRIPT, extractionResult.transcript);
+	}
+
 	if (!extractionResult.success) {
 		console.error('[Pipeline] Extraction failed:', extractionResult.error);
+		const errorMsg = quoteAgent.formatErrorResponse(
+			extractionResult.error || 'Error de extracción'
+		);
+
+		emit(ChatEventType.TEXT_DELTA, errorMsg);
+		emit(ChatEventType.FINISH, { usage: await withArsCost(totalUsage) });
+
 		return {
-			response: quoteAgent.formatErrorResponse(extractionResult.error || 'Error de extracción'),
+			response: errorMsg,
 			transcript: extractionResult.transcript,
 			usage: await withArsCost(totalUsage)
 		};
 	}
 
-	// Track usage
 	if (extractionResult.usage) addToCost(totalUsage, extractionResult.usage, extractionResult.cost);
 
 	const extractedStudies = extractionResult.data || [];
 	console.log(`[Pipeline] Extracted ${extractedStudies.length} studies:`, extractedStudies);
 
-	// Handle empty extraction
 	if (extractedStudies.length === 0) {
+		const emptyMsg = quoteAgent.formatEmptyResponse();
+
+		emit(ChatEventType.TEXT_DELTA, emptyMsg);
+		emit(ChatEventType.FINISH, { usage: await withArsCost(totalUsage) });
+
 		return {
-			response: quoteAgent.formatEmptyResponse(),
+			response: emptyMsg,
 			transcript: extractionResult.transcript,
 			usage: await withArsCost(totalUsage)
 		};
 	}
 
-	// Stage 2: Map to catalog
 	console.log('[Pipeline] Stage 2: Mapping');
+	emit(ChatEventType.STATUS, `Buscando ${extractedStudies.length} estudio(s) en el catálogo...`);
+
 	const mappingResult: MappingWorkflowResult = await mapStudies(extractedStudies);
 
 	if (!mappingResult.success) {
 		console.error('[Pipeline] Mapping failed:', mappingResult.error);
+		const errorMsg = quoteAgent.formatErrorResponse(mappingResult.error || 'Error de mapeo');
+
+		emit(ChatEventType.TEXT_DELTA, errorMsg);
+		emit(ChatEventType.FINISH, { usage: await withArsCost(totalUsage) });
+
 		return {
-			response: quoteAgent.formatErrorResponse(mappingResult.error || 'Error de mapeo'),
+			response: errorMsg,
 			transcript: extractionResult.transcript,
 			usage: await withArsCost(totalUsage)
 		};
@@ -147,35 +185,46 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	// Handle case where nothing could be mapped
 	if (mapping.matched.length === 0 && mapping.unmatched.length > 0) {
 		const unmatchedNames = mapping.unmatched.map((u) => u.name).join(', ');
+		const unmappedMsg = `No pude encontrar estos estudios en el catálogo: ${unmatchedNames}\n\nPor favor, verificá los nombres o escribilos de otra forma.`;
+
+		emit(ChatEventType.TEXT_DELTA, unmappedMsg);
+		emit(ChatEventType.FINISH, { usage: await withArsCost(totalUsage) });
+
 		return {
-			response: `No pude encontrar estos estudios en el catálogo: ${unmatchedNames}\n\nPor favor, verificá los nombres o escribilos de otra forma.`,
+			response: unmappedMsg,
 			transcript: extractionResult.transcript,
 			usage: await withArsCost(totalUsage)
 		};
 	}
 
-	// Stage 3: Calculate quote
 	console.log('[Pipeline] Stage 3: Quote calculation');
+	emit(ChatEventType.STATUS, 'Generando presupuesto...');
+
 	const quote: QuoteResult = quoteAgent.calculate(mapping);
 	console.log('[Pipeline] Quote calculated:', quote.summary);
 
-	// Stage 4: Format response
 	const response = quoteAgent.formatResponse(quote);
+	const finalUsage = await withArsCost(totalUsage);
+
+	emit(ChatEventType.TEXT_DELTA, response);
+	emit(ChatEventType.FINISH, { usage: finalUsage, quote });
 
 	return {
 		response,
 		quote,
 		transcript: extractionResult.transcript,
-		usage: await withArsCost(totalUsage)
+		usage: finalUsage
 	};
 }
-
 /**
  * Process a conversation (handles context from previous messages).
  * For now, only processes the last user message.
  * Future: could use conversation history for context.
  */
-export async function processConversation(messages: ChatMessage[]): Promise<PipelineResponse> {
+export async function processConversation(
+	messages: ChatMessage[],
+	controller: ReadableStreamDefaultController
+): Promise<PipelineResponse> {
 	// Find the last user message
 	const lastUserMessage = [...messages].findLast((m) => m.role === 'user');
 
@@ -185,7 +234,7 @@ export async function processConversation(messages: ChatMessage[]): Promise<Pipe
 		};
 	}
 
-	return processMessage(lastUserMessage);
+	return processMessage(lastUserMessage, controller);
 }
 
 /**
