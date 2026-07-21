@@ -6,7 +6,7 @@ export { processMessage, processConversation } from './pipeline';
 export type { ChatMessage as PipelineChatMessage, PipelineResponse } from './pipeline';
 
 export { ExtractionAgent } from './extraction';
-export { getMappingAgent, MappingAgent } from './mapping';
+export { mapStudies } from './mapping';
 export { getQuoteAgent, QuoteAgent } from './quote';
 
 export type {

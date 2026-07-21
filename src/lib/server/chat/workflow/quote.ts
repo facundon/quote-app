@@ -7,7 +7,6 @@ import { db } from '../../db';
 import { category, discount, type Category, type Discount } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import type {
-	MappedStudy,
 	MappingResult,
 	QuoteResult,
 	QuoteLineItem,
@@ -204,9 +203,7 @@ export class QuoteAgent {
 			item.studies.some((s) => s.confidence !== 'exact')
 		);
 		if (hasNonExact) {
-			lines.push(
-				'> ✅ Exacto · 🟢 Alta confianza · 🟡 Media confianza · 🔍 Validado por búsqueda\n'
-			);
+			lines.push('> ✅ Exacto · 🟢 Alta confianza · 🟡 Media confianza · 🔴 Baja confianza\n');
 		}
 
 		// Summary
@@ -236,8 +233,7 @@ export class QuoteAgent {
 			exact: '✅',
 			high: '🟢',
 			medium: '🟡',
-			low: '🔴',
-			grounded: '🔍'
+			low: '🔴'
 		};
 
 		const badge = badges[study.confidence] ?? '❓';

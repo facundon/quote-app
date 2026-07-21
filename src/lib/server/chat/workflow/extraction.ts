@@ -3,43 +3,44 @@
  * Uses Gemini's structured output to ensure valid JSON responses.
  */
 
-import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
+import { GoogleGenAI, Type, type Schema } from '@google/genai';
 import type { ExtractedStudy, AgentResult } from './types';
 import {
 	EXTRACTION_SYSTEM_PROMPT,
 	IMAGE_ONLY_PROMPT,
 	AUDIO_ONLY_PROMPT
 } from '../prompts/extraction';
+import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
 
-export const EXTRACTION_MODEL = 'gemini-3.5-flash';
+const EXTRACTION_MODEL = MODEL_CONFIG.extraction;
 
 /**
  * Schema for structured JSON output.
  * Gemini will enforce this structure in its response.
  */
 const extractionResponseSchema: Schema = {
-	type: SchemaType.OBJECT,
+	type: Type.OBJECT,
 	properties: {
 		studies: {
-			type: SchemaType.ARRAY,
+			type: Type.ARRAY,
 			description: 'List of extracted medical studies',
 			items: {
-				type: SchemaType.OBJECT,
+				type: Type.OBJECT,
 				properties: {
 					name: {
-						type: SchemaType.STRING,
+						type: Type.STRING,
 						description: 'Study name as written in the input'
 					},
 					quantity: {
-						type: SchemaType.NUMBER,
+						type: Type.NUMBER,
 						description: 'Number of this study requested (default 1)'
 					},
 					context: {
-						type: SchemaType.STRING,
+						type: Type.STRING,
 						description: 'Optional context like urgency or special instructions'
 					},
 					confidence: {
-						type: SchemaType.STRING,
+						type: Type.STRING,
 						description:
 							'How confident you are in reading/hearing this study name: high (clearly written/typed or clearly spoken), medium (somewhat ambiguous or partially readable/audible), low (guessing from poor handwriting, blurry image, or unclear/noisy audio)',
 						format: 'enum',
@@ -50,7 +51,7 @@ const extractionResponseSchema: Schema = {
 			}
 		},
 		transcript: {
-			type: SchemaType.STRING,
+			type: Type.STRING,
 			description:
 				'Verbatim (or best-effort) transcription of the audio input, if audio was provided. Empty otherwise.'
 		}
@@ -101,6 +102,7 @@ export interface ExtractionMeta {
 
 export interface ExtractionResult extends AgentResult<ExtractedStudy[]> {
 	usage?: ExtractionUsage;
+	cost?: number;
 	meta?: ExtractionMeta;
 	/** Transcription of the audio input, when audio was provided. */
 	transcript?: string;
@@ -110,10 +112,10 @@ export interface ExtractionResult extends AgentResult<ExtractedStudy[]> {
  * ExtractionAgent class that handles study extraction from text and images.
  */
 export class ExtractionAgent {
-	private client: GoogleGenerativeAI;
+	private client: GoogleGenAI;
 
 	constructor(apiKey: string) {
-		this.client = new GoogleGenerativeAI(apiKey);
+		this.client = new GoogleGenAI({ apiKey });
 	}
 
 	/**
@@ -134,15 +136,6 @@ export class ExtractionAgent {
 					: 'text';
 
 		try {
-			const model = this.client.getGenerativeModel({
-				model: EXTRACTION_MODEL,
-				systemInstruction: EXTRACTION_SYSTEM_PROMPT,
-				generationConfig: {
-					responseMimeType: 'application/json',
-					responseSchema: extractionResponseSchema
-				}
-			});
-
 			// Build the content parts
 			const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> =
 				[];
@@ -189,7 +182,7 @@ export class ExtractionAgent {
 					success: false,
 					error: 'No input provided for extraction',
 					meta: {
-						model: EXTRACTION_MODEL,
+						model: EXTRACTION_MODEL.name,
 						durationMs: Math.round(performance.now() - startedAt),
 						inputKind,
 						studyCount: 0,
@@ -198,8 +191,16 @@ export class ExtractionAgent {
 				};
 			}
 
-			const result = await model.generateContent(parts);
-			const response = result.response;
+			const response = await this.client.models.generateContent({
+				model: EXTRACTION_MODEL.name,
+				contents: parts,
+				config: {
+					...EXTRACTION_MODEL,
+					systemInstruction: EXTRACTION_SYSTEM_PROMPT,
+					responseMimeType: 'application/json',
+					responseSchema: extractionResponseSchema
+				}
+			});
 			const durationMs = Math.round(performance.now() - startedAt);
 			const usageMetadata = response.usageMetadata;
 
@@ -212,7 +213,7 @@ export class ExtractionAgent {
 
 			const baseMeta: Omit<ExtractionMeta, 'studyCount' | 'confidenceBreakdown' | 'finishReason'> =
 				{
-					model: EXTRACTION_MODEL,
+					model: EXTRACTION_MODEL.name,
 					durationMs,
 					inputKind
 				};
@@ -296,11 +297,14 @@ export class ExtractionAgent {
 				confidenceBreakdown[level]++;
 			}
 
+			const cost = EXTRACTION_MODEL.getCost(usage);
+
 			return {
 				success: true,
 				data: studies,
+				cost,
 				usage,
-				transcript: parsed.transcript?.trim() || undefined,
+				transcript: parsed.transcript?.trim(),
 				meta: {
 					...baseMeta,
 					finishReason: candidate.finishReason,
@@ -314,7 +318,7 @@ export class ExtractionAgent {
 				success: false,
 				error: error instanceof Error ? error.message : 'Unknown extraction error',
 				meta: {
-					model: EXTRACTION_MODEL,
+					model: EXTRACTION_MODEL.name,
 					durationMs: Math.round(performance.now() - startedAt),
 					inputKind,
 					studyCount: 0,

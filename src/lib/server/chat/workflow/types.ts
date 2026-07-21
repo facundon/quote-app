@@ -19,10 +19,10 @@ export interface ExtractedStudy {
 }
 
 /** How the study was matched to the catalog. */
-export type MatchMethod = 'direct' | 'llm' | 'grounded';
+export type MatchMethod = 'direct' | 'llm';
 
 /** Granular confidence level for a catalog match. */
-export type MappingConfidence = 'exact' | 'high' | 'medium' | 'low' | 'grounded';
+export type MappingConfidence = 'exact' | 'high' | 'medium' | 'low';
 
 /**
  * Study after mapping to the catalog.

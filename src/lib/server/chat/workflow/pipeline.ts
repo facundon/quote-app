@@ -3,17 +3,16 @@
  *
  * Flow:
  * 1. ExtractionAgent: Extract study names from text/image
- * 2. MappingAgent: Map extracted names to catalog entries
+ * 2. Mapping workflow: Map extracted names to catalog entries
  * 3. QuoteAgent: Calculate quote and format response
  */
 
 import { env } from '$env/dynamic/private';
 import { convertUsdToArs, getUsdToArsRate } from '$lib/server/exchange/usdToArs';
-import { ExtractionAgent, EXTRACTION_MODEL, type ExtractionResult } from './extraction';
-import { getMappingAgent, MAPPING_MODEL, type MappingAgentResult } from './mapping';
+import { ExtractionAgent, type ExtractionResult } from './extraction';
+import { mapStudies, type MappingWorkflowResult } from './mapping';
 import { getQuoteAgent } from './quote';
-import { calculateCostUsd } from './pricing';
-import type { PipelineResponse, QuoteResult } from './types';
+import type { PipelineResponse, QuoteResult, TokenUsage } from './types';
 
 /**
  * Singleton ExtractionAgent instance for the app's pipeline.
@@ -65,13 +64,18 @@ async function withArsCost(usage: PipelineUsage): Promise<PipelineUsage> {
 	}
 }
 
+function addToCost(totalUsage: PipelineUsage, usage: TokenUsage, cost: number | undefined) {
+	totalUsage.inputTokens += usage.inputTokens;
+	totalUsage.outputTokens += usage.outputTokens;
+	totalUsage.costUsd += cost ?? 0;
+}
+
 /**
  * Process a single message through the agent pipeline.
  * This is the main entry point for quote generation.
  */
 export async function processMessage(message: ChatMessage): Promise<PipelineResponse> {
 	const extractionAgent = getExtractionAgent();
-	const mappingAgent = getMappingAgent();
 	const quoteAgent = getQuoteAgent();
 
 	const totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
@@ -96,15 +100,7 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	}
 
 	// Track usage
-	if (extractionResult.usage) {
-		totalUsage.inputTokens += extractionResult.usage.inputTokens;
-		totalUsage.outputTokens += extractionResult.usage.outputTokens;
-		totalUsage.costUsd += calculateCostUsd(
-			EXTRACTION_MODEL,
-			extractionResult.usage.inputTokens,
-			extractionResult.usage.outputTokens
-		);
-	}
+	if (extractionResult.usage) addToCost(totalUsage, extractionResult.usage, extractionResult.cost);
 
 	const extractedStudies = extractionResult.data || [];
 	console.log(`[Pipeline] Extracted ${extractedStudies.length} studies:`, extractedStudies);
@@ -120,7 +116,7 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 
 	// Stage 2: Map to catalog
 	console.log('[Pipeline] Stage 2: Mapping');
-	const mappingResult: MappingAgentResult = await mappingAgent.map(extractedStudies);
+	const mappingResult: MappingWorkflowResult = await mapStudies(extractedStudies);
 
 	if (!mappingResult.success) {
 		console.error('[Pipeline] Mapping failed:', mappingResult.error);
@@ -131,16 +127,7 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 		};
 	}
 
-	// Track usage
-	if (mappingResult.usage) {
-		totalUsage.inputTokens += mappingResult.usage.inputTokens;
-		totalUsage.outputTokens += mappingResult.usage.outputTokens;
-		totalUsage.costUsd += calculateCostUsd(
-			MAPPING_MODEL,
-			mappingResult.usage.inputTokens,
-			mappingResult.usage.outputTokens
-		);
-	}
+	if (mappingResult.usage) addToCost(totalUsage, mappingResult.usage, mappingResult.cost);
 
 	const mapping = mappingResult.data!;
 	console.log(
@@ -190,7 +177,7 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
  */
 export async function processConversation(messages: ChatMessage[]): Promise<PipelineResponse> {
 	// Find the last user message
-	const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+	const lastUserMessage = [...messages].findLast((m) => m.role === 'user');
 
 	if (!lastUserMessage) {
 		return {
