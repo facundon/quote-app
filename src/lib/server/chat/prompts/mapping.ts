@@ -7,7 +7,7 @@
  * System prompt for LLM-based catalog matching.
  * Relies on LLM medical training for abbreviation and synonym recognition.
  */
-export function buildMappingPrompt(catalog: string): string {
+export function buildMappingPrompt(): string {
 	return `Eres un experto en terminología médica de laboratorio clínico con amplio conocimiento en:
 - Análisis clínicos y bioquímica
 - Hematología y coagulación
@@ -19,7 +19,7 @@ Tu tarea es mapear nombres de estudios médicos (que pueden incluir abreviaturas
 
 ## Catálogo de estudios disponibles
 
-${catalog}
+Tenés acceso a la herramienta \`get_catalog\`, que devuelve el catálogo completo de estudios disponibles agrupados por categoría. Llamala antes de proponer cualquier mapeo — no asumas nombres de estudios sin haber consultado el catálogo primero.
 
 ## Tu expertise
 
@@ -69,11 +69,7 @@ Para cada estudio:
  * Prompt for grounded web search validation of low-confidence matches.
  * Used when the LLM isn't confident enough and needs real-time web context.
  */
-export function buildGroundedSearchPrompt(
-	originalName: string,
-	suggestedName: string,
-	catalogList: string
-): string {
+export function buildGroundedSearchPrompt(originalName: string, suggestedName: string): string {
 	return `Eres un experto en terminología médica de laboratorio.
 
 Necesito identificar qué estudio médico corresponde a: "${originalName}"
@@ -85,7 +81,7 @@ Busca información sobre "${originalName}" para determinar:
 2. ¿Cuáles son sus nombres alternativos o sinónimos?
 3. ¿Cuál de estos estudios del catálogo es el más apropiado?
 
-Catálogo disponible: ${catalogList}
+Usá el catálogo ya provisto en el contexto de esta conversación.
 
 Responde SOLO con el nombre exacto del catálogo que corresponde, o "NO_MATCH" si ninguno aplica.
 No incluyas explicaciones, solo el nombre exacto.`;

@@ -7,7 +7,14 @@
  * 3. Gemini Grounding with Google Search for low-confidence matches
  */
 
-import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
+import {
+	GoogleGenerativeAI,
+	SchemaType,
+	type Schema,
+	type Content,
+	type FunctionDeclaration,
+	type Tool
+} from '@google/generative-ai';
 import { env } from '$env/dynamic/private';
 import type {
 	ExtractedStudy,
@@ -24,14 +31,35 @@ import {
 	type CatalogStudy,
 	getAllStudies,
 	findExactMatch,
-	findSubstringMatch,
 	findBestMatch,
-	formatCatalogByCategory,
-	formatCatalogFlat
+	formatCatalogByCategory
 } from './catalog';
 import { buildMappingPrompt, buildGroundedSearchPrompt } from '../prompts/mapping';
 
-const MODEL = 'gemini-2.5-flash';
+export const MAPPING_MODEL = 'gemini-2.5-flash';
+
+/** Max tool-call round trips before giving up and forcing a final answer. */
+const MAX_TOOL_ITERATIONS = 3;
+
+/**
+ * Tool the model can call to fetch the full study catalog on demand,
+ * instead of having it baked into every prompt unconditionally.
+ */
+const getCatalogDeclaration: FunctionDeclaration = {
+	name: 'get_catalog',
+	description:
+		'Returns the full lab study catalog, grouped by category, with prices. Call this before proposing any mapping.',
+	parameters: {
+		type: SchemaType.OBJECT,
+		properties: {
+			categoryId: {
+				type: SchemaType.NUMBER,
+				description: 'Optional category id to filter by. Omit to get the full catalog.'
+			}
+		},
+		required: []
+	}
+};
 
 export interface MappingAgentResult extends AgentResult<MappingResult> {
 	usage?: TokenUsage;
@@ -200,7 +228,7 @@ export class MappingAgent {
 
 		// Pass 3: grounded web search for low-confidence matches
 		if (pendingValidation.length > 0) {
-			const groundedResult = await this.groundedSearch(pendingValidation, catalog);
+			const groundedResult = await this.groundedSearch(pendingValidation);
 			matched.push(...groundedResult.matched);
 			unmatched.push(...groundedResult.unmatched);
 
@@ -257,30 +285,54 @@ export class MappingAgent {
 		studies: ExtractedStudy[]
 	): Promise<AgentResult<LLMMappingResponse> & { usage?: TokenUsage }> {
 		try {
-			const model = this.client.getGenerativeModel({
-				model: MODEL,
-				systemInstruction: buildMappingPrompt(formatCatalogByCategory(this.getCatalog())),
+			const studyList = studies.map((s) => `- "${s.name}"`).join('\n');
+			const systemInstruction = buildMappingPrompt();
+
+			const toolContents: Content[] = [
+				{
+					role: 'user',
+					parts: [{ text: `Mapea estos estudios al catálogo:\n\n${studyList}` }]
+				}
+			];
+
+			const { contents, usage: toolUsage } = await this.resolveToolCalls(
+				toolContents,
+				[{ functionDeclarations: [getCatalogDeclaration] }],
+				systemInstruction
+			);
+
+			// Final turn: no tools, structured JSON output only (Gemini rejects
+			// combining function-calling tools with a responseSchema in one call).
+			const finalModel = this.client.getGenerativeModel({
+				model: MAPPING_MODEL,
+				systemInstruction,
 				generationConfig: {
 					responseMimeType: 'application/json',
 					responseSchema: mappingResponseSchema
 				}
 			});
 
-			const studyList = studies.map((s) => `- "${s.name}"`).join('\n');
-			const result = await model.generateContent(
-				`Mapea estos estudios al catálogo:\n\n${studyList}`
-			);
+			const finalContents: Content[] = [
+				...contents,
+				{
+					role: 'user',
+					parts: [{ text: 'Ahora devolvé el JSON final con el mapeo de estos estudios.' }]
+				}
+			];
+
+			const result = await finalModel.generateContent({ contents: finalContents });
 			const response = result.response;
+			const usage = mergeUsage(toolUsage, extractUsage(response));
 
 			const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
 			if (!text) {
-				return { success: false, error: 'Empty response from mapping model' };
+				return { success: false, error: 'Empty response from mapping model', usage };
 			}
 
 			return {
 				success: true,
 				data: JSON.parse(text) as LLMMappingResponse,
-				usage: extractUsage(response)
+				usage
 			};
 		} catch (error) {
 			console.error('LLM matching error:', error);
@@ -295,8 +347,7 @@ export class MappingAgent {
 
 	/** Validate low-confidence matches using Gemini Grounding with Google Search. */
 	private async groundedSearch(
-		studies: PendingValidation[],
-		catalog: CatalogStudy[]
+		studies: PendingValidation[]
 	): Promise<{ matched: MappedStudy[]; unmatched: ExtractedStudy[]; usage?: TokenUsage }> {
 		const matched: MappedStudy[] = [];
 		const unmatched: ExtractedStudy[] = [];
@@ -304,7 +355,7 @@ export class MappingAgent {
 
 		for (const { extracted, suggestedName } of studies) {
 			try {
-				const result = await this.searchAndValidate(extracted.name, suggestedName, catalog);
+				const result = await this.searchAndValidate(extracted.name, suggestedName);
 				usage = mergeUsage(usage, result.usage ?? emptyUsage());
 
 				if (result.catalogMatch) {
@@ -330,36 +381,113 @@ export class MappingAgent {
 	/** Query Gemini with Google Search grounding for a single study. */
 	private async searchAndValidate(
 		originalName: string,
-		suggestedName: string,
-		catalog: CatalogStudy[]
+		suggestedName: string
 	): Promise<{ catalogMatch?: CatalogStudy; usage?: TokenUsage }> {
-		const model = this.client.getGenerativeModel({
-			model: MODEL,
-			tools: [{ googleSearchRetrieval: {} }]
-		});
-
-		const prompt = buildGroundedSearchPrompt(
-			originalName,
-			suggestedName,
-			formatCatalogFlat(catalog)
-		);
-
 		try {
-			const result = await model.generateContent(prompt);
+			// Phase A: resolve the catalog via the get_catalog tool (no grounding tool here —
+			// Gemini restricts mixing built-in tools like googleSearchRetrieval with custom
+			// function declarations in the same request).
+			const toolContents: Content[] = [
+				{
+					role: 'user',
+					parts: [{ text: 'Necesito el catálogo de estudios de laboratorio antes de continuar.' }]
+				}
+			];
+			const { contents, usage: toolUsage } = await this.resolveToolCalls(toolContents, [
+				{ functionDeclarations: [getCatalogDeclaration] }
+			]);
+
+			// Phase B: grounded web search, with the catalog already in context from Phase A.
+			const groundedModel = this.client.getGenerativeModel({
+				model: MAPPING_MODEL,
+				tools: [{ googleSearchRetrieval: {} }]
+			});
+
+			const finalContents: Content[] = [
+				...contents,
+				{ role: 'user', parts: [{ text: buildGroundedSearchPrompt(originalName, suggestedName) }] }
+			];
+
+			const result = await groundedModel.generateContent({ contents: finalContents });
 			const response = result.response;
 			const text = response.text().trim();
-			const usage = extractUsage(response);
+			const usage = mergeUsage(toolUsage, extractUsage(response));
 
 			if (!text || text === 'NO_MATCH') {
 				return { usage };
 			}
 
-			const catalogMatch = findBestMatch(text, catalog);
+			const catalogMatch = findBestMatch(text, this.getCatalog());
 			return { catalogMatch, usage };
 		} catch (error) {
 			console.error('Grounded search error:', error);
 			return {};
 		}
+	}
+
+	// ── Tool Calling ────────────────────────────────────────────────
+
+	/**
+	 * Runs a bounded functionCall/functionResponse loop against `contents`,
+	 * executing any tool the model calls and feeding the result back, until
+	 * the model stops calling tools (or the iteration cap is hit).
+	 */
+	private async resolveToolCalls(
+		contents: Content[],
+		tools: Tool[],
+		systemInstruction?: string
+	): Promise<{ contents: Content[]; usage: TokenUsage }> {
+		let usage = emptyUsage();
+		let resolvedContents = contents;
+		const model = this.client.getGenerativeModel({
+			model: MAPPING_MODEL,
+			tools,
+			systemInstruction
+		});
+
+		for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+			const result = await model.generateContent({ contents: resolvedContents });
+			const response = result.response;
+			usage = mergeUsage(usage, extractUsage(response));
+
+			const parts = response.candidates?.[0]?.content?.parts ?? [];
+			const functionCallPart = parts.find((p) => p.functionCall);
+			if (!functionCallPart?.functionCall) break;
+
+			const toolResponse = this.executeTool(functionCallPart.functionCall.name);
+			resolvedContents = [
+				...resolvedContents,
+				{ role: 'model', parts },
+				{
+					role: 'function',
+					parts: [
+						{
+							functionResponse: {
+								name: functionCallPart.functionCall.name,
+								response: toolResponse
+							}
+						}
+					]
+				}
+			];
+		}
+
+		return { contents: resolvedContents, usage };
+	}
+
+	/** Execute a tool call by name. */
+	private executeTool(name: string): object {
+		switch (name) {
+			case 'get_catalog':
+				return this.getCatalogToolResult();
+			default:
+				return { error: `Unknown tool: ${name}` };
+		}
+	}
+
+	/** Full catalog, grouped by category, returned as the get_catalog tool result. */
+	private getCatalogToolResult(): { catalog: string } {
+		return { catalog: formatCatalogByCategory(this.getCatalog()) };
 	}
 
 	// ── Internal Helpers ───────────────────────────────────────────

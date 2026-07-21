@@ -95,8 +95,3 @@ export function formatCatalogByCategory(catalog: CatalogStudy[]): string {
 
 	return lines.join('\n');
 }
-
-/** Format the catalog as a flat comma-separated list of names. */
-export function formatCatalogFlat(catalog: CatalogStudy[]): string {
-	return catalog.map((s) => s.name).join(', ');
-}

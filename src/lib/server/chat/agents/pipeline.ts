@@ -7,23 +7,62 @@
  * 3. QuoteAgent: Calculate quote and format response
  */
 
-import { getExtractionAgent, type ExtractionResult } from './extraction';
-import { getMappingAgent, type MappingAgentResult } from './mapping';
+import { env } from '$env/dynamic/private';
+import { convertUsdToArs, getUsdToArsRate } from '$lib/server/exchange/usdToArs';
+import { ExtractionAgent, EXTRACTION_MODEL, type ExtractionResult } from './extraction';
+import { getMappingAgent, MAPPING_MODEL, type MappingAgentResult } from './mapping';
 import { getQuoteAgent } from './quote';
+import { calculateCostUsd } from './pricing';
 import type { PipelineResponse, QuoteResult } from './types';
+
+/**
+ * Singleton ExtractionAgent instance for the app's pipeline.
+ * Kept out of extraction.ts so that file has no SvelteKit dependency and
+ * can be imported directly by the extraction eval harness (evals/extraction).
+ */
+let extractionAgentInstance: ExtractionAgent | null = null;
+
+function getExtractionAgent(): ExtractionAgent {
+	if (!extractionAgentInstance) {
+		const apiKey = env.GEMINI_API_KEY;
+		if (!apiKey) {
+			throw new Error('GEMINI_API_KEY not configured');
+		}
+		extractionAgentInstance = new ExtractionAgent(apiKey);
+	}
+	return extractionAgentInstance;
+}
 
 export interface ChatMessage {
 	role: 'user' | 'assistant';
-	content: string;
+	content?: string;
 	/** Base64-encoded image data (without data URL prefix) */
 	image?: string;
 	/** MIME type of the image */
 	imageType?: string;
+	/** Base64-encoded audio data (without data URL prefix) */
+	audio?: string;
+	/** MIME type of the audio */
+	audioType?: string;
 }
 
 interface PipelineUsage {
 	inputTokens: number;
 	outputTokens: number;
+	costUsd: number;
+	costArs?: number;
+}
+
+async function withArsCost(usage: PipelineUsage): Promise<PipelineUsage> {
+	if (usage.costUsd <= 0) return usage;
+
+	try {
+		const rate = await getUsdToArsRate();
+		return { ...usage, costArs: convertUsdToArs(usage.costUsd, rate) };
+	} catch (err) {
+		console.warn('[Pipeline] USD/ARS conversion failed:', err);
+		return usage;
+	}
 }
 
 /**
@@ -35,21 +74,24 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	const mappingAgent = getMappingAgent();
 	const quoteAgent = getQuoteAgent();
 
-	let totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0 };
+	const totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
 	// Stage 1: Extract studies from input
 	console.log('[Pipeline] Stage 1: Extraction');
 	const extractionResult: ExtractionResult = await extractionAgent.extract({
 		text: message.content,
 		image: message.image,
-		imageType: message.imageType
+		imageType: message.imageType,
+		audio: message.audio,
+		audioType: message.audioType
 	});
 
 	if (!extractionResult.success) {
 		console.error('[Pipeline] Extraction failed:', extractionResult.error);
 		return {
 			response: quoteAgent.formatErrorResponse(extractionResult.error || 'Error de extracción'),
-			usage: totalUsage
+			transcript: extractionResult.transcript,
+			usage: await withArsCost(totalUsage)
 		};
 	}
 
@@ -57,6 +99,11 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	if (extractionResult.usage) {
 		totalUsage.inputTokens += extractionResult.usage.inputTokens;
 		totalUsage.outputTokens += extractionResult.usage.outputTokens;
+		totalUsage.costUsd += calculateCostUsd(
+			EXTRACTION_MODEL,
+			extractionResult.usage.inputTokens,
+			extractionResult.usage.outputTokens
+		);
 	}
 
 	const extractedStudies = extractionResult.data || [];
@@ -66,7 +113,8 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	if (extractedStudies.length === 0) {
 		return {
 			response: quoteAgent.formatEmptyResponse(),
-			usage: totalUsage
+			transcript: extractionResult.transcript,
+			usage: await withArsCost(totalUsage)
 		};
 	}
 
@@ -78,7 +126,8 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 		console.error('[Pipeline] Mapping failed:', mappingResult.error);
 		return {
 			response: quoteAgent.formatErrorResponse(mappingResult.error || 'Error de mapeo'),
-			usage: totalUsage
+			transcript: extractionResult.transcript,
+			usage: await withArsCost(totalUsage)
 		};
 	}
 
@@ -86,6 +135,11 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	if (mappingResult.usage) {
 		totalUsage.inputTokens += mappingResult.usage.inputTokens;
 		totalUsage.outputTokens += mappingResult.usage.outputTokens;
+		totalUsage.costUsd += calculateCostUsd(
+			MAPPING_MODEL,
+			mappingResult.usage.inputTokens,
+			mappingResult.usage.outputTokens
+		);
 	}
 
 	const mapping = mappingResult.data!;
@@ -108,7 +162,8 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 		const unmatchedNames = mapping.unmatched.map((u) => u.name).join(', ');
 		return {
 			response: `No pude encontrar estos estudios en el catálogo: ${unmatchedNames}\n\nPor favor, verificá los nombres o escribilos de otra forma.`,
-			usage: totalUsage
+			transcript: extractionResult.transcript,
+			usage: await withArsCost(totalUsage)
 		};
 	}
 
@@ -123,7 +178,8 @@ export async function processMessage(message: ChatMessage): Promise<PipelineResp
 	return {
 		response,
 		quote,
-		usage: totalUsage
+		transcript: extractionResult.transcript,
+		usage: await withArsCost(totalUsage)
 	};
 }
 

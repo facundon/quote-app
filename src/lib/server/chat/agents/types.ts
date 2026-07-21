@@ -168,9 +168,14 @@ export interface PipelineResponse {
 	response: string;
 	/** Structured quote data (for programmatic access) */
 	quote?: QuoteResult;
-	/** Token usage across all LLM calls */
+	/** Transcription of the audio input, when the message included audio */
+	transcript?: string;
+	/** Token usage and cost across all LLM calls */
 	usage?: {
 		inputTokens: number;
 		outputTokens: number;
+		costUsd: number;
+		/** LLM cost converted to ARS at dólar blue venta */
+		costArs?: number;
 	};
 }

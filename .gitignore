@@ -30,3 +30,7 @@ vite.config.ts.timestamp-*
 # Uploaded invoices
 /facturas/
 /boletines/
+
+# Eval fixture images may contain real patient data — keep out of git
+/evals/extraction/fixtures/images/*
+!/evals/extraction/fixtures/images/.gitkeep

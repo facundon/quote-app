@@ -20,6 +20,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({
 			response: result.response,
 			quote: result.quote,
+			transcript: result.transcript,
 			usage: result.usage
 		});
 	} catch (error) {

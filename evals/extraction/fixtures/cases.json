@@ -1,0 +1,420 @@
+[
+	{
+		"id": "typed-list-basic",
+		"description": "Clearly typed list, no ambiguity",
+		"input": {
+			"text": "Necesito cotizar 3 hemogramas y una glucemia"
+		},
+		"expected": [
+			{
+				"name": "hemogramas",
+				"quantity": 3
+			},
+			{
+				"name": "glucemia",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "quantity-x-notation",
+		"description": "Quantity written as 'x2' suffix",
+		"input": {
+			"text": "HGM, uremia, creatinina x2"
+		},
+		"expected": [
+			{
+				"name": "HGM",
+				"quantity": 1
+			},
+			{
+				"name": "uremia",
+				"quantity": 1
+			},
+			{
+				"name": "creatinina",
+				"quantity": 2
+			}
+		]
+	},
+	{
+		"id": "quantity-spelled-out",
+		"description": "Quantity spelled out in words instead of digits",
+		"input": {
+			"text": "Necesito dos hemogramas y tres glucemias"
+		},
+		"expected": [
+			{
+				"name": "hemogramas",
+				"quantity": 2
+			},
+			{
+				"name": "glucemias",
+				"quantity": 3
+			}
+		]
+	},
+	{
+		"id": "grouped-panel-lipid",
+		"description": "Grouped panel name should stay as one item, not be split",
+		"input": {
+			"text": "Pedido: perfil lipidico completo"
+		},
+		"expected": [
+			{
+				"name": "perfil lipidico completo",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "grouped-panel-hepatograma",
+		"description": "Another grouped panel name",
+		"input": {
+			"text": "Solicito un hepatograma"
+		},
+		"expected": [
+			{
+				"name": "hepatograma",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "noisy-context-text",
+		"description": "Study names embedded in unrelated surrounding text/context",
+		"input": {
+			"text": "Hola, buenas tardes. El paciente viene en ayunas y necesita con urgencia: glucemia, urea y colesterol total. Gracias!"
+		},
+		"expected": [
+			{
+				"name": "glucemia",
+				"quantity": 1
+			},
+			{
+				"name": "urea",
+				"quantity": 1
+			},
+			{
+				"name": "colesterol total",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "no-studies-present",
+		"description": "Message has no medical studies at all — extraction should return empty",
+		"input": {
+			"text": "Hola, ¿a qué hora abren mañana?"
+		},
+		"expected": []
+	},
+	{
+		"id": "misspelled-name-not-corrected",
+		"description": "Prompt says not to correct spelling — extracted name should preserve the typo",
+		"input": {
+			"text": "Necesito una glucemya y un hemograma"
+		},
+		"expected": [
+			{
+				"name": "glucemya",
+				"quantity": 1
+			},
+			{
+				"name": "hemograma",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "mixed-quantities-and-abbreviations",
+		"description": "Mix of full names, abbreviations, and quantities in one message",
+		"input": {
+			"text": "3 hemogramas, 1 HGM, glucemia x2, y un perfil renal"
+		},
+		"expected": [
+			{
+				"name": "hemogramas",
+				"quantity": 3
+			},
+			{
+				"name": "HGM",
+				"quantity": 1
+			},
+			{
+				"name": "glucemia",
+				"quantity": 2
+			},
+			{
+				"name": "perfil renal",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "single-study-no-quantity",
+		"description": "Single study, no quantity specified — defaults to 1",
+		"input": {
+			"text": "cotizar orina completa"
+		},
+		"expected": [
+			{
+				"name": "orina completa",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "list-with-bullets",
+		"description": "Studies listed one per line with bullets/dashes",
+		"input": {
+			"text": "- PSA\n- Testosterona\n- Vitamina D\n- Ferritina"
+		},
+		"expected": [
+			{
+				"name": "PSA",
+				"quantity": 1
+			},
+			{
+				"name": "Testosterona",
+				"quantity": 1
+			},
+			{
+				"name": "Vitamina D",
+				"quantity": 1
+			},
+			{
+				"name": "Ferritina",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "receipt-image-01",
+		"description": "Receipt with common lab abbreviations, hard to read and diagnostic at the bottom",
+		"input": {
+			"imagePath": "images/recipt-1.jpeg",
+			"imageType": "image/jpeg"
+		},
+		"expected": [
+			{
+				"name": "FR (latex) / Factor Reumatoideo",
+				"quantity": 1
+			},
+			{
+				"name": "Glucemia",
+				"quantity": 1
+			},
+			{
+				"name": "FAN (Titulo y patron)",
+				"quantity": 1
+			},
+			{
+				"name": "T4L",
+				"quantity": 1
+			},
+			{
+				"name": "TSH",
+				"quantity": 1
+			},
+			{
+				"name": "Hepatograma",
+				"quantity": 1
+			},
+			{
+				"name": "Hemograma",
+				"quantity": 1
+			},
+			{
+				"name": "Urea",
+				"quantity": 1
+			},
+			{
+				"name": "Creatinina",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "receipt-image-02",
+		"description": "Printed receipt with a misspelled name",
+		"input": {
+			"imagePath": "images/recipt-2.jpeg",
+			"imageType": "image/jpeg"
+		},
+		"expected": [
+			{
+				"name": "Hemograma",
+				"quantity": 1
+			},
+			{
+				"name": "Glucemia",
+				"quantity": 1
+			},
+			{
+				"name": "Urea",
+				"quantity": 1
+			},
+			{
+				"name": "Uricemia",
+				"quantity": 1
+			},
+			{
+				"name": "Hepatograma",
+				"quantity": 1
+			},
+			{
+				"name": "Colesterol Total",
+				"quantity": 1
+			},
+			{
+				"name": "HDL",
+				"quantity": 1
+			},
+			{
+				"name": "LDL",
+				"quantity": 1
+			},
+			{
+				"name": "Trigliceridos",
+				"quantity": 1
+			},
+			{
+				"name": "Orina Completa",
+				"quantity": 1
+			},
+			{
+				"name": "Creatinina",
+				"quantity": 1
+			},
+			{
+				"name": "TSH",
+				"quantity": 1
+			},
+			{
+				"name": "T4 Libre",
+				"quantity": 1
+			},
+			{
+				"name": "Anti TPO",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "receipt-image-03",
+		"description": "Recipt photo with a background image and a lot of text",
+		"input": {
+			"imagePath": "images/recipt-3.jpeg",
+			"imageType": "image/jpeg"
+		},
+		"expected": [
+			{
+				"name": "VSG",
+				"quantity": 1
+			},
+			{
+				"name": "PCR",
+				"quantity": 1
+			},
+			{
+				"name": "Hemograma",
+				"quantity": 1
+			},
+			{
+				"name": "Glucemia",
+				"quantity": 1
+			},
+			{
+				"name": "Creatinina",
+				"quantity": 1
+			},
+			{
+				"name": "Uricemia",
+				"quantity": 1
+			},
+			{
+				"name": "Hepatograma",
+				"quantity": 1
+			},
+			{
+				"name": "Vitamina B12",
+				"quantity": 1
+			},
+			{
+				"name": "Vitamina D3",
+				"quantity": 1
+			},
+			{
+				"name": "Calcemia",
+				"quantity": 1
+			},
+			{
+				"name": "TSH",
+				"quantity": 1
+			},
+			{
+				"name": "T4 Libre",
+				"quantity": 1
+			},
+			{
+				"name": "PSA Libre",
+				"quantity": 1
+			},
+			{
+				"name": "PSA Total",
+				"quantity": 1
+			}
+		]
+	},
+	{
+		"id": "receipt-image-04",
+		"description": "Recipt photo very hard to read",
+		"input": {
+			"imagePath": "images/recipt-4.jpeg",
+			"imageType": "image/jpeg"
+		},
+		"expected": [
+			{
+				"name": "Hemograma",
+				"quantity": 1
+			},
+			{
+				"name": "Glucemia",
+				"quantity": 1
+			},
+			{
+				"name": "Uremia",
+				"quantity": 1
+			},
+			{
+				"name": "Colesterol Total",
+				"quantity": 1
+			},
+			{
+				"name": "Trigliceridos",
+				"quantity": 1
+			},
+			{
+				"name": "Uricemia",
+				"quantity": 1
+			},
+			{
+				"name": "Cortisol",
+				"quantity": 1
+			},
+			{
+				"name": "Progeinograma Electroforetico",
+				"quantity": 1
+			},
+			{
+				"name": "Orina Completa",
+				"quantity": 1
+			},
+			{
+				"name": "TCH",
+				"quantity": 1
+			}
+		]
+	}
+]
