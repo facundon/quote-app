@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { marked } from 'marked';
-	import VolumeMeter from './VolumeMeter.svelte';
+	import VoiceRecorder from './assistant/VoiceRecorder.svelte';
 
 	marked.setOptions({
 		breaks: true,
@@ -49,24 +49,6 @@
 
 	const STORAGE_KEY = 'chat-messages' as const;
 	const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB limit for Groq
-	const MAX_RECORDING_MS = 90 * 1000;
-	const MAX_AUDIO_SIZE = 10 * 1024 * 1024;
-
-	const AUDIO_MIME_CANDIDATES = [
-		'audio/webm;codecs=opus',
-		'audio/webm',
-		'audio/ogg;codecs=opus',
-		'audio/mp4'
-	] as const;
-
-	function pickAudioMimeType(): string {
-		for (const type of AUDIO_MIME_CANDIDATES) {
-			if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(type)) {
-				return type;
-			}
-		}
-		return '';
-	}
 
 	function loadMessages(): Message[] {
 		if (!browser) return [];
@@ -94,19 +76,7 @@
 	let zoomedImage = $state<{ data: string; type: string } | null>(null);
 	let pendingAudio = $state<{ data: string; type: string } | null>(null);
 	let isRecording = $state(false);
-	let recordingSeconds = $state(0);
-	let isRecordingPaused = $state(false);
-
-	let mediaRecorder: MediaRecorder | null = null;
-	let mediaStream: MediaStream | null = $state(null);
-	let recordedChunks: Blob[] = [];
-	let recordingInterval: ReturnType<typeof setInterval> | null = null;
-
-	function formatElapsed(seconds: number): string {
-		const m = Math.floor(seconds / 60);
-		const s = seconds % 60;
-		return `${m}:${s.toString().padStart(2, '0')}`;
-	}
+	let input = $state('');
 
 	function openImageZoom(imageData: string, imageType: string) {
 		zoomedImage = { data: imageData, type: imageType };
@@ -119,6 +89,13 @@
 	function handleModalKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			closeImageZoom();
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			sendMessage();
 		}
 	}
 
@@ -138,103 +115,6 @@
 			reader.onerror = reject;
 			reader.readAsDataURL(file);
 		});
-	}
-
-	function blobToBase64(blob: Blob, type: string): Promise<{ data: string; type: string }> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => {
-				const result = reader.result as string;
-				const base64 = result.split(',')[1];
-				resolve({ data: base64, type });
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
-	}
-
-	function stopRecordingTracks() {
-		mediaStream?.getTracks().forEach((track) => track.stop());
-		mediaStream = null;
-	}
-
-	function clearRecordingInterval() {
-		if (recordingInterval) {
-			clearInterval(recordingInterval);
-			recordingInterval = null;
-		}
-	}
-
-	async function startRecording() {
-		error = null;
-		try {
-			mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-		} catch {
-			error = 'Se necesita acceso al micrófono para grabar';
-			return;
-		}
-
-		const mimeType = pickAudioMimeType();
-		recordedChunks = [];
-
-		try {
-			mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
-		} catch {
-			error = 'No se pudo iniciar la grabación en este navegador';
-			stopRecordingTracks();
-			return;
-		}
-
-		mediaRecorder.ondataavailable = (e) => {
-			if (e.data.size > 0) recordedChunks.push(e.data);
-		};
-
-		mediaRecorder.onstop = async () => {
-			const type = mediaRecorder?.mimeType || mimeType || 'audio/webm';
-			const blob = new Blob(recordedChunks, { type });
-			stopRecordingTracks();
-
-			if (blob.size > MAX_AUDIO_SIZE) {
-				error = 'La grabación es muy larga, intentá con un mensaje más corto';
-				return;
-			}
-
-			try {
-				pendingAudio = await blobToBase64(blob, type);
-			} catch {
-				error = 'Error al procesar la grabación';
-			}
-		};
-
-		mediaRecorder.start();
-		isRecording = true;
-		recordingSeconds = 0;
-		isRecordingPaused = false;
-		recordingInterval = setInterval(() => {
-			if (isRecordingPaused) return;
-			recordingSeconds += 1;
-			if (recordingSeconds * 1000 >= MAX_RECORDING_MS) {
-				stopRecording();
-			}
-		}, 1000);
-	}
-
-	function stopRecording() {
-		clearRecordingInterval();
-		isRecording = false;
-		mediaRecorder?.stop();
-	}
-
-	function toggleRecording() {
-		if (isRecording) {
-			stopRecording();
-		} else {
-			startRecording();
-		}
-	}
-
-	function discardPendingAudio() {
-		pendingAudio = null;
 	}
 
 	async function handleImageFile(file: File) {
@@ -281,9 +161,8 @@
 		pendingImage = null;
 	}
 
-	function togglePauseRecording() {
-		isRecordingPaused ? mediaRecorder?.resume() : mediaRecorder?.pause();
-		isRecordingPaused = !isRecordingPaused;
+	function discardPendingAudio() {
+		pendingAudio = null;
 	}
 
 	async function sendMessage() {
@@ -341,7 +220,6 @@
 	}
 
 	function clearChat() {
-		if (isRecording) stopRecording();
 		messages = [];
 		pendingImage = null;
 		pendingAudio = null;
@@ -479,57 +357,23 @@
 				>
 					×
 				</button>
-				<span class="text-xs text-slate-500">Grabación lista para enviar</span>
 			</div>
 		{/if}
-		<div class="flex items-center gap-2">
-			{#if isRecording}
-				<VolumeMeter stream={mediaStream} isPaused={isRecordingPaused} />
-			{/if}
-			<button
-				type="button"
-				onclick={toggleRecording}
+		<div class="flex gap-1">
+			<textarea
+				bind:value={input}
+				onkeydown={handleKeydown}
+				onpaste={handlePaste}
+				placeholder="Escribí, pegá texto o una imagen..."
+				rows="1"
 				disabled={isLoading}
-				class="flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 {isRecording
-					? 'border-red-300 bg-red-50 text-red-600'
-					: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}"
-			>
-				{#if isRecording}
-					<span class="animate-pulse {isRecordingPaused ? 'text-blue-500' : 'text-red-500'}">●</span
-					>
-					{#if isRecordingPaused}
-						<span class="text-blue-500">
-							Pausado {formatElapsed(recordingSeconds)}
-						</span>
-					{:else}
-						<span>Grabando... {formatElapsed(recordingSeconds)}</span>
-					{/if}
-					<span class="text-xs text-red-500">(Detener)</span>
-				{:else}
-					<span>🎤</span>
-					<span>Grabar</span>
-				{/if}
-			</button>
-			{#if isRecording}
-				<button
-					type="button"
-					onclick={togglePauseRecording}
-					disabled={isLoading}
-					class="flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{#if isRecordingPaused}
-						<span>▶️</span>
-						<span>Resumir</span>
-					{:else}
-						<span>⏸️</span>
-						<span>Pausar</span>
-					{/if}
-				</button>
-			{/if}
+				class="flex-1 resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:bg-slate-100"
+			></textarea>
+			<VoiceRecorder isDisabled={isLoading} bind:error bind:pendingAudio bind:isRecording />
 			<button
 				type="button"
 				onclick={sendMessage}
-				disabled={isLoading || isRecording || (!pendingAudio && !pendingImage)}
+				disabled={isLoading || isRecording || (!pendingAudio && !pendingImage && !input.trim())}
 				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				Enviar
