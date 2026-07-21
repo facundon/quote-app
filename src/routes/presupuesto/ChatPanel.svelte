@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { marked } from 'marked';
+	import VolumeMeter from './VolumeMeter.svelte';
 
 	marked.setOptions({
 		breaks: true,
@@ -42,13 +43,11 @@
 		const totalTokens = usage.inputTokens + usage.outputTokens;
 		const tokenLabel = `${totalTokens.toLocaleString('es-AR')} tokens (${usage.inputTokens.toLocaleString('es-AR')} in / ${usage.outputTokens.toLocaleString('es-AR')} out)`;
 		const costLabel =
-			usage.costArs != null
-				? formatCurrencyArs(usage.costArs)
-				: `$${usage.costUsd.toFixed(4)} USD`;
+			usage.costArs != null ? formatCurrencyArs(usage.costArs) : `$${usage.costUsd.toFixed(4)} USD`;
 		return `${tokenLabel} · ${costLabel}`;
 	}
 
-	const STORAGE_KEY = 'chat-messages';
+	const STORAGE_KEY = 'chat-messages' as const;
 	const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB limit for Groq
 	const MAX_RECORDING_MS = 90 * 1000;
 	const MAX_AUDIO_SIZE = 10 * 1024 * 1024;
@@ -58,7 +57,7 @@
 		'audio/webm',
 		'audio/ogg;codecs=opus',
 		'audio/mp4'
-	];
+	] as const;
 
 	function pickAudioMimeType(): string {
 		for (const type of AUDIO_MIME_CANDIDATES) {
@@ -96,9 +95,10 @@
 	let pendingAudio = $state<{ data: string; type: string } | null>(null);
 	let isRecording = $state(false);
 	let recordingSeconds = $state(0);
+	let isRecordingPaused = $state(false);
 
 	let mediaRecorder: MediaRecorder | null = null;
-	let mediaStream: MediaStream | null = null;
+	let mediaStream: MediaStream | null = $state(null);
 	let recordedChunks: Blob[] = [];
 	let recordingInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -178,9 +178,7 @@
 		recordedChunks = [];
 
 		try {
-			mediaRecorder = mimeType
-				? new MediaRecorder(mediaStream, { mimeType })
-				: new MediaRecorder(mediaStream);
+			mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
 		} catch {
 			error = 'No se pudo iniciar la grabación en este navegador';
 			stopRecordingTracks();
@@ -211,7 +209,9 @@
 		mediaRecorder.start();
 		isRecording = true;
 		recordingSeconds = 0;
+		isRecordingPaused = false;
 		recordingInterval = setInterval(() => {
+			if (isRecordingPaused) return;
 			recordingSeconds += 1;
 			if (recordingSeconds * 1000 >= MAX_RECORDING_MS) {
 				stopRecording();
@@ -279,6 +279,11 @@
 
 	function clearPendingImage() {
 		pendingImage = null;
+	}
+
+	function togglePauseRecording() {
+		isRecordingPaused ? mediaRecorder?.resume() : mediaRecorder?.pause();
+		isRecordingPaused = !isRecordingPaused;
 	}
 
 	async function sendMessage() {
@@ -478,6 +483,9 @@
 			</div>
 		{/if}
 		<div class="flex items-center gap-2">
+			{#if isRecording}
+				<VolumeMeter stream={mediaStream} isPaused={isRecordingPaused} />
+			{/if}
 			<button
 				type="button"
 				onclick={toggleRecording}
@@ -487,14 +495,37 @@
 					: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}"
 			>
 				{#if isRecording}
-					<span class="animate-pulse text-red-500">●</span>
-					<span>Grabando... {formatElapsed(recordingSeconds)}</span>
+					<span class="animate-pulse {isRecordingPaused ? 'text-blue-500' : 'text-red-500'}">●</span
+					>
+					{#if isRecordingPaused}
+						<span class="text-blue-500">
+							Pausado {formatElapsed(recordingSeconds)}
+						</span>
+					{:else}
+						<span>Grabando... {formatElapsed(recordingSeconds)}</span>
+					{/if}
 					<span class="text-xs text-red-500">(Detener)</span>
 				{:else}
 					<span>🎤</span>
 					<span>Grabar</span>
 				{/if}
 			</button>
+			{#if isRecording}
+				<button
+					type="button"
+					onclick={togglePauseRecording}
+					disabled={isLoading}
+					class="flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{#if isRecordingPaused}
+						<span>▶️</span>
+						<span>Resumir</span>
+					{:else}
+						<span>⏸️</span>
+						<span>Pausar</span>
+					{/if}
+				</button>
+			{/if}
 			<button
 				type="button"
 				onclick={sendMessage}
