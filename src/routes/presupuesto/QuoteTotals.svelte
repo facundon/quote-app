@@ -13,13 +13,15 @@
 		categoryDiscounts,
 		formatNumber,
 		finalTotal,
-		totalQuantity
+		totalQuantity,
+		manualAmount = 0
 	}: {
 		total: number;
 		categoryDiscounts: CategoryDiscount[];
 		formatNumber: (n: number) => string;
 		finalTotal: number;
 		totalQuantity: number;
+		manualAmount?: number;
 	} = $props();
 
 	let totalDiscounts = $derived(categoryDiscounts.reduce((acc, d) => acc + d.amount, 0));
@@ -34,11 +36,23 @@
 				<span class="text-base text-slate-700">Subtotal</span>
 				<span class="flex-grow"></span>
 				<span class="rounded-full bg-slate-100 px-2 py-0.5 text-base font-bold text-blue-900"
-					>${formatNumber(total)}</span
+					>${formatNumber(total - manualAmount)}</span
 				>
 			</div>
 			<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
 		</div>
+		{#if manualAmount > 0}
+			<div class="mb-1 w-full">
+				<div class="flex w-full items-center gap-2">
+					<span class="text-base text-slate-700">Entrada manual</span>
+					<span class="flex-grow"></span>
+					<span class="rounded-full bg-amber-100 px-2 py-0.5 text-base font-bold text-amber-900"
+						>${formatNumber(manualAmount)}</span
+					>
+				</div>
+				<div class="mt-1 w-full border-b border-dotted border-gray-300"></div>
+			</div>
+		{/if}
 		{#if totalDiscounts > 0}
 			<div class="mb-1 w-full">
 				<div class="flex w-full items-center gap-2">

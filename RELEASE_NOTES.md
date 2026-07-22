@@ -1,1 +1,2 @@
-Se agrego asistente de presupuestos por voz
+Se agrego entrada manual en presupuestador
+Se mejoro respuestas en presupuesto por voz

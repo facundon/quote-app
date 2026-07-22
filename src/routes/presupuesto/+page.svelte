@@ -14,6 +14,7 @@
 	let categoryQuantities = $state<{ [categoryId: number]: number }>(
 		Object.fromEntries(data.categories.map((cat) => [cat.id, 0]))
 	);
+	let manualAmount = $state(0);
 	let showSummary = $state(true);
 	let search = $state('');
 	let selectedStudy = $state<{ id: number; name: string; category_id: number } | null>(null);
@@ -42,7 +43,7 @@
 	let total = $derived.by(() =>
 		data.categories.reduce(
 			(sum, cat) => sum + (categoryQuantities[cat.id] || 0) * cat.unit_price,
-			0
+			manualAmount
 		)
 	);
 
@@ -138,6 +139,7 @@
 	function resetBudget() {
 		// Reset all category quantities to 0
 		categoryQuantities = Object.fromEntries(data.categories.map((cat) => [cat.id, 0]));
+		manualAmount = 0;
 		// Clear search
 		search = '';
 		selectedStudy = null;
@@ -203,6 +205,18 @@
 					Total: {formatInt(totalQuantity)} estudios
 				</span>
 			</div>
+			<div class="mt-4 flex items-center gap-2 bg-amber-50/60 rounded-lg p-3 border border-amber-200">
+				<label for="manual-amount" class="font-medium text-amber-900">Entrada manual ($)</label>
+				<input
+					id="manual-amount"
+					type="number"
+					bind:value={manualAmount}
+					min="0"
+					step="0.01"
+					placeholder="0.00"
+					class="flex-1 rounded border border-amber-300 px-2 py-1 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none"
+				/>
+			</div>
 			<QuoteSummary
 				{data}
 				{categoryQuantities}
@@ -212,7 +226,7 @@
 				{showSummary}
 				toggleSummary={() => (showSummary = !showSummary)}
 			/>
-			<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity} />
+			<QuoteTotals {total} {categoryDiscounts} {formatNumber} {finalTotal} {totalQuantity} {manualAmount} />
 			<div class="mt-6 flex justify-end">
 				<ResetButton onReset={resetBudget} variant="danger" />
 			</div>
