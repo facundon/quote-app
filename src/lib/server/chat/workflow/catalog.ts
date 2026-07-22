@@ -72,6 +72,16 @@ export function findBestMatch(name: string, catalog: CatalogStudy[]): CatalogStu
 	return findExactMatch(name, catalog) ?? findSubstringMatch(name, catalog);
 }
 
+// ── Bundle Multiplier ────────────────────────────────────────────────
+
+const BUNDLE_MULTIPLIER_REGEX = /\(x(\d+)\)/i;
+
+/** Bundle multiplier encoded in a catalog name, e.g. "Hepatograma (x4)" -> 4. */
+export function getBundleMultiplier(catalogName: string): number {
+	const match = catalogName.match(BUNDLE_MULTIPLIER_REGEX);
+	return match ? Number(match[1]) : 1;
+}
+
 // ── Formatting ───────────────────────────────────────────────────────
 
 /** Format the catalog grouped by category (for use in LLM prompts). */

@@ -14,7 +14,7 @@ import { mapStudies, type MappingWorkflowResult } from './mapping';
 import { getQuoteAgent } from './quote';
 import { type PipelineResponse, type QuoteResult, type TokenUsage } from './types';
 import {
-	ChatEventType,
+	ErrorChatEvent,
 	FinishChatEvent,
 	StatusChatEvent,
 	TextDeltaChatEvent,
@@ -126,7 +126,7 @@ export async function processMessage(
 			extractionResult.error || 'Error de extracción'
 		);
 
-		emit(new TextDeltaChatEvent(errorMsg));
+		emit(new ErrorChatEvent(errorMsg));
 		emit(new FinishChatEvent({ usage: await withArsCost(totalUsage) }));
 
 		return {

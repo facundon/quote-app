@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx svelte-check *)"
+      "Bash(npx svelte-check *)",
+      "Bash(sqlite3 local.db \"SELECT name FROM study WHERE name LIKE '%x%' AND name LIKE '%\\(%' LIMIT 30;\")",
+      "Bash(/opt/homebrew/bin/npm run *)",
+      "Bash(sqlite3 /Users/facundo/Projects/quote-app/local.db)"
     ]
   }
 }

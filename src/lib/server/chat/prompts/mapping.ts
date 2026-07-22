@@ -19,6 +19,8 @@ export function buildMappingPrompt(): string {
 
 Tu tarea es mapear nombres de estudios médicos (que pueden incluir abreviaturas, sinónimos, o nombres coloquiales) a sus nombres oficiales en el catálogo.
 
+Debes realizar absolutamente todo tu proceso de razonamiento interno (chain of thought) en español. No utilices ningún token en inglés durante la etapa de pensamiento
+
 ## Herramientas disponibles
 
 - \`get_catalog\`: devuelve el catálogo completo de estudios disponibles agrupados por categoría. Llamala antes de proponer cualquier mapeo — no asumas nombres de estudios sin haber consultado el catálogo primero.

@@ -30,18 +30,21 @@
 		pendingAudio: { data: string; type: string } | null;
 		isDisabled?: boolean;
 		error?: string | null;
+		onStopRecording: () => void;
 	};
 
 	let {
 		isRecording = $bindable(),
 		isDisabled = false,
 		error = $bindable(null),
-		pendingAudio = $bindable(null)
+		pendingAudio = $bindable(null),
+		onStopRecording
 	}: Props = $props();
 
 	let recordedChunks: Blob[] = [];
 	let recordingInterval: ReturnType<typeof setInterval> | null = null;
 	let mediaRecorder: MediaRecorder | null = null;
+	let wasDiscarded = false;
 
 	let mediaStream: MediaStream | null = $state(null);
 
@@ -50,6 +53,7 @@
 
 	async function startRecording() {
 		error = null;
+		wasDiscarded = false;
 		try {
 			mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 		} catch {
@@ -77,6 +81,8 @@
 			const blob = new Blob(recordedChunks, { type });
 			stopRecordingTracks();
 
+			if (wasDiscarded) return;
+
 			if (blob.size > MAX_AUDIO_SIZE) {
 				error = 'La grabación es muy larga, intentá con un mensaje más corto';
 				return;
@@ -84,6 +90,7 @@
 
 			try {
 				pendingAudio = await blobToBase64(blob, type);
+				onStopRecording();
 			} catch {
 				error = 'Error al procesar la grabación';
 			}
@@ -133,12 +140,13 @@
 		mediaRecorder?.stop();
 	}
 
+	async function discardRecording() {
+		wasDiscarded = true;
+		stopRecording();
+	}
+
 	function toggleRecording() {
-		if (isRecording) {
-			stopRecording();
-		} else {
-			startRecording();
-		}
+		isRecording ? stopRecording() : startRecording();
 	}
 
 	function togglePauseRecording() {
@@ -147,7 +155,7 @@
 	}
 </script>
 
-<div class="flex items-center gap-2">
+<div class="flex flex-1 items-center gap-2">
 	{#if isRecording}
 		<VolumeMeter stream={mediaStream} isPaused={isRecordingPaused} />
 	{/if}
@@ -155,7 +163,7 @@
 		type="button"
 		onclick={toggleRecording}
 		disabled={isDisabled}
-		class="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 {isRecording
+		class="flex flex-grow-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 {isRecording
 			? 'border-red-300 bg-red-50 text-red-600'
 			: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}"
 	>
@@ -179,7 +187,7 @@
 			type="button"
 			onclick={togglePauseRecording}
 			disabled={isDisabled}
-			class="flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+			class="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{#if isRecordingPaused}
 				<span>▶️</span>
@@ -188,6 +196,13 @@
 				<span>⏸️</span>
 				<span>Pausar</span>
 			{/if}
+		</button>
+		<button
+			type="button"
+			onclick={discardRecording}
+			class="flex items-center justify-center gap-2 rounded-lg border border-red-400 bg-red-400 px-3 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			<span>Cancelar</span>
 		</button>
 	{/if}
 </div>

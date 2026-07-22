@@ -56,13 +56,13 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 		};
 	},
 	get mapping(): ModelConfig {
-		const model: GeminiModel = 'gemini-3.5-flash';
+		const model: GeminiModel = 'gemini-3.1-flash-lite';
 		const pricing = MODEL_PRICING[model];
 		return {
 			name: model,
 			...pricing,
 			temperature: 0.1,
-			thinkingConfig: { includeThoughts: true },
+			thinkingConfig: { includeThoughts: true, thinkingLevel: ThinkingLevel.LOW },
 			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
 				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};
@@ -74,7 +74,6 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			name: model,
 			...pricing,
 			temperature: 0.1,
-			thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
 			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
 				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};

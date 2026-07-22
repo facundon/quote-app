@@ -16,6 +16,24 @@ export interface ChatUsage {
 	costUsd: number;
 	costArs?: number;
 }
+
+export interface PendingMedia {
+	data: string;
+	type: string;
+}
+
+export interface ChatMessage {
+	role: 'user' | 'assistant';
+	content: string;
+	image?: string;
+	imageType?: string;
+	audio?: string;
+	audioType?: string;
+	transcript?: string;
+	usage?: ChatUsage;
+	thoughts?: string;
+	statusText?: string;
+}
 interface BaseChatEvent {
 	type: ChatEventType;
 	data: unknown;
@@ -30,9 +48,9 @@ export class TranscriptChatEvent implements BaseChatEvent {
 }
 export class ErrorChatEvent implements BaseChatEvent {
 	readonly type = 'error' as const;
-	readonly data: Error;
-	constructor(data: Error) {
-		this.data = data;
+	readonly data: string;
+	constructor(data: Error | string) {
+		this.data = data instanceof Error ? data.message : data;
 	}
 }
 export class TextDeltaChatEvent implements BaseChatEvent {
@@ -77,7 +95,7 @@ interface EventCallbacks {
 	onStatusChange(status: string): void;
 	onTextDelta(text: string): void;
 	onFinish(usage: ChatUsage): void;
-	onError(error: unknown): void;
+	onError(error: string): void;
 	onThought(thought: string): void;
 }
 

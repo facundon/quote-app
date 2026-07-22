@@ -33,7 +33,8 @@ import {
 	type CatalogStudy,
 	getAllStudies,
 	findBestMatch,
-	formatCatalogByCategory
+	formatCatalogByCategory,
+	getBundleMultiplier
 } from './catalog';
 import { buildMappingPrompt } from '../prompts/mapping';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
@@ -137,7 +138,7 @@ function toMappedStudy(
 		categoryName: match.categoryName,
 		categoryId: match.categoryId,
 		unitPrice: match.unitPrice,
-		quantity: extracted.quantity,
+		quantity: extracted.quantity * getBundleMultiplier(match.name),
 		confidence: meta.confidence,
 		matchMethod: meta.confidence === 'exact' ? 'direct' : 'llm',
 		reasoning: meta.reasoning,
