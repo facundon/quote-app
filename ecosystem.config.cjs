@@ -54,7 +54,9 @@ module.exports = {
 				SMTP_USER: 'your-email@gmail.com',
 				SMTP_PASS: 'your-app-password',
 
-				GEMINI_API_KEY: 'the key here'
+				GEMINI_API_KEY: 'the key here',
+
+				BODY_SIZE_LIMIT: 'Infinity'
 			}
 		}
 	]

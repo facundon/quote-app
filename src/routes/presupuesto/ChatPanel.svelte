@@ -3,6 +3,7 @@
 	import { marked } from 'marked';
 	import VoiceRecorder from './assistant/VoiceRecorder.svelte';
 	import StatusBadge from './assistant/StatusBadge.svelte';
+	import { mapLineToCallback, type ChatUsage } from '$lib/chat/events';
 
 	marked.setOptions({
 		breaks: true,
@@ -13,13 +14,6 @@
 		return marked.parse(content) as string;
 	}
 
-	interface Usage {
-		inputTokens: number;
-		outputTokens: number;
-		costUsd: number;
-		costArs?: number;
-	}
-
 	interface Message {
 		role: 'user' | 'assistant';
 		content: string;
@@ -28,7 +22,7 @@
 		audio?: string;
 		audioType?: string;
 		transcript?: string;
-		usage?: Usage;
+		usage?: ChatUsage;
 	}
 
 	function formatCurrencyArs(value: number): string {
@@ -40,7 +34,7 @@
 		}).format(value);
 	}
 
-	function formatUsage(usage: Usage): string {
+	function formatUsage(usage: ChatUsage): string {
 		const totalTokens = usage.inputTokens + usage.outputTokens;
 		const tokenLabel = `${totalTokens.toLocaleString('es-AR')} tokens (${usage.inputTokens.toLocaleString('es-AR')} in / ${usage.outputTokens.toLocaleString('es-AR')} out)`;
 		const costLabel =
@@ -182,34 +176,23 @@
 			buffer = lines.pop() ?? '';
 
 			for (const line of lines) {
-				if (!line.trim()) continue;
-				try {
-					const event = JSON.parse(line);
-
-					switch (event.type) {
-						case 'status':
-							statusText = event.data;
-							break;
-
-						case 'transcript':
-							messages[userMessageIndex].transcript = event.data.transcript;
-							break;
-
-						case 'text-delta':
-							messages[assistantIndex].content += event.data;
-							break;
-
-						case 'finish':
-							messages[assistantIndex].usage = event.data.usage;
-							break;
-
-						case 'error':
-							error = event.data;
-							break;
+				mapLineToCallback(line, {
+					onTranscript(transcript) {
+						messages[userMessageIndex].transcript = transcript;
+					},
+					onTextDelta(text) {
+						messages[assistantIndex].content += text;
+					},
+					onStatusChange(status) {
+						statusText = status;
+					},
+					onFinish(usage) {
+						messages[assistantIndex].usage = usage;
+					},
+					onError(error) {
+						error = error;
 					}
-				} catch (err) {
-					console.error('Error parseando fragmento NDJSON:', err, line);
-				}
+				});
 			}
 		}
 	}

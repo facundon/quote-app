@@ -12,7 +12,7 @@ export interface ModelPricing {
 
 export interface ModelConfig extends ModelPricing, GenerateContentConfig {
 	name: GeminiModel;
-	getCost(args: GetCostProps): number;
+	getCost(args: GetCostProps, usedAudio?: boolean): number;
 }
 
 const MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'] as const;
@@ -51,7 +51,8 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			name: model,
 			...pricing,
 			temperature: 0.1,
-			getCost: ({ inputTokens, outputTokens }) => calculateCostUsd(model, inputTokens, outputTokens)
+			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
+				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};
 	},
 	get mapping(): ModelConfig {
@@ -62,7 +63,8 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			...pricing,
 			temperature: 0.1,
 			// thinkingConfig: { includeThoughts: true },
-			getCost: ({ inputTokens, outputTokens }) => calculateCostUsd(model, inputTokens, outputTokens)
+			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
+				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};
 	},
 	get parser(): ModelConfig {
@@ -73,7 +75,8 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			...pricing,
 			temperature: 0.1,
 			thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-			getCost: ({ inputTokens, outputTokens }) => calculateCostUsd(model, inputTokens, outputTokens)
+			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
+				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};
 	}
 } as const;
@@ -88,11 +91,13 @@ const FALLBACK_PRICING: ModelPricing = {
 function calculateCostUsd(
 	modelKey: GeminiModel,
 	inputTokens: number,
-	outputTokens: number
+	outputTokens: number,
+	usedAudio?: boolean
 ): number {
 	const model = MODEL_PRICING[modelKey] ?? FALLBACK_PRICING;
+	const inputCost = usedAudio ? model.inputAudio : model.inputPerMillionTokens;
 	return (
-		(inputTokens / 1_000_000) * model.inputPerMillionTokens +
+		(inputTokens / 1_000_000) * inputCost +
 		(outputTokens / 1_000_000) * model.outputPerMillionTokens
 	);
 }

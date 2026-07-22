@@ -179,12 +179,3 @@ export interface PipelineResponse {
 		costArs?: number;
 	};
 }
-
-export const ChatEventType = {
-	TRANSCRIPT: 'transcript',
-	TEXT_DELTA: 'text-delta',
-	FINISH: 'finish',
-	ERROR: 'error',
-	STATUS: 'status'
-} as const;
-export type ChatEventType = (typeof ChatEventType)[keyof typeof ChatEventType];
