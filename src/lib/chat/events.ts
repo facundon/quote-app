@@ -5,7 +5,8 @@ export const ChatEventType = {
 	TEXT_DELTA: 'text-delta',
 	FINISH: 'finish',
 	ERROR: 'error',
-	STATUS: 'status'
+	STATUS: 'status',
+	LLM_THOUGHT: 'llm-thought'
 } as const;
 export type ChatEventType = (typeof ChatEventType)[keyof typeof ChatEventType];
 
@@ -55,12 +56,20 @@ export class StatusChatEvent implements BaseChatEvent {
 		this.data = data;
 	}
 }
+export class ThoughtChatEvent implements BaseChatEvent {
+	readonly type = 'llm-thought' as const;
+	readonly data: string;
+	constructor(data: string) {
+		this.data = data;
+	}
+}
 
 export type ChatEvent =
 	| StatusChatEvent
 	| FinishChatEvent
 	| TextDeltaChatEvent
 	| ErrorChatEvent
+	| ThoughtChatEvent
 	| TranscriptChatEvent;
 
 interface EventCallbacks {
@@ -69,11 +78,12 @@ interface EventCallbacks {
 	onTextDelta(text: string): void;
 	onFinish(usage: ChatUsage): void;
 	onError(error: unknown): void;
+	onThought(thought: string): void;
 }
 
 export function mapLineToCallback(
 	line: string,
-	{ onTranscript, onStatusChange, onTextDelta, onFinish, onError }: EventCallbacks
+	{ onTranscript, onStatusChange, onTextDelta, onFinish, onError, onThought }: EventCallbacks
 ) {
 	if (!line.trim()) return null;
 	try {
@@ -83,21 +93,20 @@ export function mapLineToCallback(
 			case ChatEventType.STATUS:
 				onStatusChange(event.data);
 				break;
-
 			case ChatEventType.TRANSCRIPT:
 				onTranscript(event.data);
 				break;
-
 			case ChatEventType.TEXT_DELTA:
 				onTextDelta(event.data);
 				break;
-
 			case ChatEventType.FINISH:
 				onFinish(event.data.usage);
 				break;
-
 			case ChatEventType.ERROR:
 				onError(event.data);
+				break;
+			case ChatEventType.LLM_THOUGHT:
+				onThought(event.data);
 				break;
 		}
 	} catch (err) {

@@ -62,7 +62,7 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			name: model,
 			...pricing,
 			temperature: 0.1,
-			// thinkingConfig: { includeThoughts: true },
+			thinkingConfig: { includeThoughts: true },
 			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
 				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
 		};

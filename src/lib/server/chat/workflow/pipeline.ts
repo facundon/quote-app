@@ -157,7 +157,7 @@ export async function processMessage(
 	console.log('[Pipeline] Stage 2: Mapping');
 	emit(new StatusChatEvent(`Buscando ${extractedStudies.length} estudio(s) en el catálogo...`));
 
-	const mappingResult: MappingWorkflowResult = await mapStudies(extractedStudies);
+	const mappingResult: MappingWorkflowResult = await mapStudies(extractedStudies, emit);
 
 	if (!mappingResult.success) {
 		console.error('[Pipeline] Mapping failed:', mappingResult.error);

@@ -23,6 +23,8 @@
 		audioType?: string;
 		transcript?: string;
 		usage?: ChatUsage;
+		thoughts?: string;
+		statusText?: string;
 	}
 
 	function formatCurrencyArs(value: number): string {
@@ -72,7 +74,6 @@
 	let pendingAudio = $state<{ data: string; type: string } | null>(null);
 	let isRecording = $state(false);
 	let input = $state('');
-	let statusText = $state('');
 
 	function openImageZoom(imageData: string, imageType: string) {
 		zoomedImage = { data: imageData, type: imageType };
@@ -184,13 +185,16 @@
 						messages[assistantIndex].content += text;
 					},
 					onStatusChange(status) {
-						statusText = status;
+						messages[assistantIndex].statusText = status;
 					},
 					onFinish(usage) {
 						messages[assistantIndex].usage = usage;
 					},
 					onError(error) {
 						error = error;
+					},
+					onThought(thought) {
+						messages[assistantIndex].thoughts = (messages[assistantIndex].thoughts ?? '') + thought;
 					}
 				});
 			}
@@ -243,7 +247,7 @@
 			if (!res.body) throw new Error('No se recibió stream del servidor');
 			const reader = res.body.getReader();
 			await processEvent(reader);
-			statusText = '';
+			messages[assistantIndex].statusText = '';
 		} catch (e) {
 			error = 'Error de conexión';
 			console.error(e);
@@ -317,26 +321,46 @@
 									src="data:{msg.audioType || 'audio/webm'};base64,{msg.audio}"
 									class="mb-2 h-8 max-w-full"
 								></audio>
+								{#if msg.transcript}
+									<p
+										class="mt-1 text-xs italic {msg.role === 'user'
+											? 'text-blue-100'
+											: 'text-slate-500'}"
+									>
+										"{msg.transcript}"
+									</p>
+								{/if}
 							{/if}
 							{#if msg.role === 'assistant'}
+								{#if msg.thoughts}
+									<details class="mb-2 rounded-md border border-slate-200 bg-slate-50">
+										<summary
+											class="cursor-pointer px-2 py-1 text-xs font-medium text-slate-500 select-none hover:text-slate-700"
+										>
+											💭 Razonamiento
+										</summary>
+										<div
+											class="prose prose-sm max-w-none border-t border-slate-200 px-2 py-2 text-slate-500"
+										>
+											{@html renderMarkdown(msg.thoughts)}
+										</div>
+									</details>
+								{/if}
 								<div class="prose prose-sm max-w-none">
 									{@html renderMarkdown(msg.content)}
 								</div>
-								<StatusBadge {statusText} />
+								{#if msg.statusText}
+									<div class="mt-2">
+										<StatusBadge statusText={msg.statusText} />
+									</div>
+								{/if}
 							{:else}
 								<p class="text-sm whitespace-pre-wrap">{msg.content}</p>
 							{/if}
-							{#if msg.transcript}
-								<p
-									class="mt-1 text-xs italic {msg.role === 'user'
-										? 'text-blue-100'
-										: 'text-slate-500'}"
-								>
-									"{msg.transcript}"
-								</p>
-							{/if}
 							{#if msg.usage}
-								<p class="mt-1 text-xs text-slate-400">
+								<p
+									class="mt-1 border-t border-slate-100 pt-1 text-xs text-slate-400"
+								>
 									{formatUsage(msg.usage)}
 								</p>
 							{/if}

@@ -15,7 +15,8 @@ import {
 	Type,
 	type FunctionDeclaration,
 	type Content,
-	type Schema
+	type Schema,
+	type GenerateContentResponse
 } from '@google/genai';
 import { env } from '$env/dynamic/private';
 import type {
@@ -36,6 +37,7 @@ import {
 } from './catalog';
 import { buildMappingPrompt } from '../prompts/mapping';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
+import { ThoughtChatEvent, type ChatEvent } from '$lib/chat/events';
 
 const MAPPING_MODEL = MODEL_CONFIG.mapping;
 const PARSER_MODEL = MODEL_CONFIG.parser;
@@ -183,7 +185,8 @@ function directMatch(
  */
 async function llmMapRemaining(
 	remaining: ExtractedStudy[],
-	catalog: CatalogStudy[]
+	catalog: CatalogStudy[],
+	onProgress: (data: ChatEvent) => void
 ): Promise<{ matched: MappedStudy[]; unmatched: ExtractedStudy[]; usage: TokenUsage }> {
 	const studyList = remaining.map((s) => `- "${s.name}"`).join('\n');
 	let contents: Content[] = [
@@ -193,7 +196,7 @@ async function llmMapRemaining(
 	const systemInstruction = buildMappingPrompt();
 
 	for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-		const response = await getClient().models.generateContent({
+		const stream = await getClient().models.generateContentStream({
 			model: MAPPING_MODEL.name,
 			contents,
 			config: {
@@ -203,12 +206,24 @@ async function llmMapRemaining(
 				systemInstruction
 			}
 		});
-		usage = mergeUsage(usage, extractUsage(response));
 
-		const modelParts = response.candidates?.[0]?.content?.parts ?? [];
+		let modelParts: NonNullable<Content['parts']> = [];
+		let functionCalls: NonNullable<GenerateContentResponse['functionCalls']> = [];
+		for await (const chunk of stream) {
+			usage = mergeUsage(usage, extractUsage(chunk));
+			const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+			modelParts = [...modelParts, ...parts];
+			functionCalls = [...functionCalls, ...(chunk.functionCalls ?? [])];
+
+			for (const part of parts) {
+				if (!part.text) continue;
+				if (part.thought) onProgress(new ThoughtChatEvent(part.text));
+			}
+		}
+
 		contents = [...contents, { role: 'model', parts: modelParts }];
 
-		const catalogCall = (response.functionCalls ?? []).find((call) => call.name === 'get_catalog');
+		const catalogCall = functionCalls.find((call) => call.name === 'get_catalog');
 		if (!catalogCall) break;
 
 		contents.push({
@@ -291,7 +306,10 @@ function routeMappings(
 // ── Public API ───────────────────────────────────────────────────────────
 
 /** Map extracted studies to catalog entries: direct match, then LLM fallback. */
-export async function mapStudies(studies: ExtractedStudy[]): Promise<MappingWorkflowResult> {
+export async function mapStudies(
+	studies: ExtractedStudy[],
+	onProgress: (event: ChatEvent) => void
+): Promise<MappingWorkflowResult> {
 	try {
 		const catalog = getAllStudies();
 		const { matched, remaining } = directMatch(studies, catalog);
@@ -300,7 +318,7 @@ export async function mapStudies(studies: ExtractedStudy[]): Promise<MappingWork
 			return { success: true, data: { matched, unmatched: [] } };
 		}
 
-		const llmResult = await llmMapRemaining(remaining, catalog);
+		const llmResult = await llmMapRemaining(remaining, catalog, onProgress);
 		return {
 			success: true,
 			data: { matched: [...matched, ...llmResult.matched], unmatched: llmResult.unmatched },
