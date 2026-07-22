@@ -117,8 +117,8 @@
 
 	async function processEvent(reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>) {
 		const decoder = new TextDecoder();
-		const userMessageIndex = messages.length - 1;
-		const assistantIndex = messages.length - 1;
+		const userMessageIndex = messages.findLastIndex(({ role }) => role === 'user');
+		const assistantIndex = messages.findLastIndex(({ role }) => role === 'assistant');
 		let buffer = '';
 
 		while (true) {
@@ -153,18 +153,19 @@
 				});
 			}
 		}
+		console.log(messages);
 	}
 
 	async function sendMessage() {
 		const hasImage = !!pendingImage;
 		const hasAudio = !!pendingAudio;
 
-		if ((!hasAudio && !hasImage) || isLoading) return;
+		if ((!hasAudio && !hasImage && !input) || isLoading) return;
 
 		error = null;
 		const messageImage = pendingImage;
 		const messageAudio = pendingAudio;
-		const messageText = hasAudio ? '🎤 Nota de voz' : 'Cotizá los estudios de esta imagen';
+		const messageText = hasAudio ? '🎤 Nota de voz' : input || 'Cotizá los estudios de esta imagen';
 
 		pendingImage = null;
 		pendingAudio = null;
@@ -180,7 +181,7 @@
 			role: 'assistant',
 			content: ''
 		});
-		const assistantIndex = messages.length - 1;
+		const assistantIndex = messages.findLastIndex(({ role }) => role === 'assistant');
 
 		isLoading = true;
 

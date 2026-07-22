@@ -69,9 +69,15 @@
 				</p>
 			{/if}
 		{/if}
+		{#if msg.role === 'user' && !msg.audio}
+			<p class="text-sm whitespace-pre-wrap">{msg.content}</p>
+		{/if}
 		{#if msg.role === 'assistant'}
 			{#if msg.thoughts}
-				<details bind:open={isReasoningOpen} class="mb-2 rounded-md border border-slate-200 bg-slate-50">
+				<details
+					bind:open={isReasoningOpen}
+					class="mb-2 rounded-md border border-slate-200 bg-slate-50"
+				>
 					<summary
 						class="cursor-pointer px-2 py-1 text-xs font-medium text-slate-500 select-none hover:text-slate-700"
 					>
@@ -90,8 +96,6 @@
 					<StatusBadge statusText={msg.statusText} />
 				</div>
 			{/if}
-		{:else}
-			<p class="text-sm whitespace-pre-wrap">{msg.content}</p>
 		{/if}
 		{#if msg.usage}
 			<p class="mt-1 border-t border-slate-100 pt-1 text-xs text-slate-400">
