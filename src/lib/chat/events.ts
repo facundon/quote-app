@@ -1,4 +1,4 @@
-import type { QuoteResult } from '$lib/server/chat/workflow/types';
+import type { ChatMessage, QuoteResult } from '$lib/server/chat/workflow/types';
 
 export const ChatEventType = {
 	TRANSCRIPT: 'transcript',
@@ -22,13 +22,7 @@ export interface PendingMedia {
 	type: string;
 }
 
-export interface ChatMessage {
-	role: 'user' | 'assistant';
-	content: string;
-	image?: string;
-	imageType?: string;
-	audio?: string;
-	audioType?: string;
+export interface UIChatMessage extends ChatMessage {
 	transcript?: string;
 	usage?: ChatUsage;
 	thoughts?: string;

@@ -119,6 +119,12 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 		lines.push('> ✅ Exacto · 🟢 Alta confianza · 🟡 Media confianza · 🔴 Baja confianza\n');
 	}
 
+	if (quote.summary.totalStudies > 0) {
+		lines.push(
+			`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`
+		);
+	}
+
 	// Summary
 	lines.push('---\n');
 
@@ -127,13 +133,7 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 		lines.push(`Descuento: -$${quote.summary.totalDiscount.toLocaleString('es-AR')}`);
 	}
 
-	if (quote.summary.totalStudies > 0) {
-		lines.push(
-			`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`
-		);
-	}
-
-	lines.push(`## **Total: $${quote.summary.finalTotal.toLocaleString('es-AR')}**`);
+	lines.push(`### **Total: $${quote.summary.finalTotal.toLocaleString('es-AR')}**`);
 
 	return lines.join('\n');
 }

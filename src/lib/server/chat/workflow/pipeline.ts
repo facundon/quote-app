@@ -26,6 +26,8 @@ import {
 	formatQuoteErrorResponse,
 	formatQuoteResponse
 } from '$lib/server/chat/workflow/quote';
+import { processMessagesWithAssistant } from '$lib/server/chat/workflow/assistant';
+import { getEventEmitter } from '$lib/server/chat/workflow/utils';
 
 interface PipelineUsage {
 	inputTokens: number;
@@ -53,20 +55,14 @@ function addToCost(totalUsage: PipelineUsage, usage: TokenUsage, cost: number | 
 }
 
 /**
- * Process a single message through the agent pipeline.
+ * Process a request quote message through the workflow.
  * This is the main entry point for quote generation.
  */
-export async function processMessage(
+export async function runQuoteWorkflow(
 	message: ChatMessage,
 	controller: ReadableStreamDefaultController
 ): Promise<PipelineResponse> {
-	const encoder = new TextEncoder();
-
-	const emit = ({ data, type }: ChatEvent) => {
-		const payload = JSON.stringify({ type, data }) + '\n';
-		controller.enqueue(encoder.encode(payload));
-	};
-
+	const emit = getEventEmitter<ChatEvent>(controller);
 	const totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
 	console.log('[Pipeline] Stage 1: Extraction');
@@ -197,23 +193,22 @@ export async function processMessage(
 		usage: finalUsage
 	};
 }
+
 /**
  * Process a conversation (handles context from previous messages).
- * For now, only processes the last user message.
- * Future: could use conversation history for context.
  */
 export async function processConversation(
 	messages: ChatMessage[],
 	controller: ReadableStreamDefaultController
 ): Promise<PipelineResponse> {
-	// Find the last user message
-	const lastUserMessage = [...messages].findLast((m) => m.role === 'user');
+	const firstUserMessage = [...messages].find((m) => m.role === 'user');
 
-	if (!lastUserMessage) {
+	if (!firstUserMessage) {
 		return {
 			response: 'No encontré un mensaje para procesar.'
 		};
 	}
 
-	return processMessage(lastUserMessage, controller);
+	if (messages.length <= 2) return runQuoteWorkflow(firstUserMessage, controller);
+	return processMessagesWithAssistant(messages, controller);
 }

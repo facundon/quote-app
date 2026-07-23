@@ -41,7 +41,7 @@ interface GetCostProps {
 	outputTokens: number;
 }
 
-const LLM_USE = ['extraction', 'mapping', 'parser', 'validator'] as const;
+const LLM_USE = ['extraction', 'mapping', 'parser', 'validator', 'assistant'] as const;
 
 export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 	get extraction(): ModelConfig {
@@ -85,6 +85,17 @@ export const MODEL_CONFIG: Record<(typeof LLM_USE)[number], ModelConfig> = {
 			name: model,
 			...pricing,
 			temperature: 0.1,
+			thinkingConfig: { includeThoughts: true, thinkingLevel: ThinkingLevel.MINIMAL },
+			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
+				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)
+		};
+	},
+	get assistant(): ModelConfig {
+		const model: GeminiModel = 'gemini-3.1-flash-lite';
+		const pricing = MODEL_PRICING[model];
+		return {
+			name: model,
+			...pricing,
 			thinkingConfig: { includeThoughts: true, thinkingLevel: ThinkingLevel.MINIMAL },
 			getCost: ({ inputTokens, outputTokens }, usedAudio) =>
 				calculateCostUsd(model, inputTokens, outputTokens, usedAudio)

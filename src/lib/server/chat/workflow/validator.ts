@@ -73,8 +73,9 @@ export async function validateMapping(
 	let text = '';
 	const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 	for await (const chunk of stream) {
-		usage.inputTokens += chunk.usageMetadata?.promptTokenCount ?? 0;
-		usage.outputTokens += chunk.usageMetadata?.candidatesTokenCount ?? 0;
+		// usageMetadata is cumulative per chunk, not a delta — overwrite, don't accumulate.
+		usage.inputTokens = chunk.usageMetadata?.promptTokenCount ?? usage.inputTokens;
+		usage.outputTokens = chunk.usageMetadata?.candidatesTokenCount ?? usage.outputTokens;
 		for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
 			if (!part.text) continue;
 			if (part.thought) onProcess(new ThoughtChatEvent(part.text));

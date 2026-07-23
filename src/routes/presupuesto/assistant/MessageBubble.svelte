@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { marked } from 'marked';
 	import StatusBadge from './StatusBadge.svelte';
-	import type { ChatMessage, ChatUsage } from '$lib/chat/events';
+	import type { UIChatMessage, ChatUsage } from '$lib/chat/events';
 	import AudioTrack from './AudioTrack.svelte';
 
 	marked.setOptions({
@@ -31,7 +31,7 @@
 	}
 
 	interface Props {
-		msg: ChatMessage;
+		msg: UIChatMessage;
 		isReasoningOpen: boolean;
 		isLoading: boolean;
 		onImageClick: (image: string, type: string) => void;

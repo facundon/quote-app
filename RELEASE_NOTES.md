@@ -1,1 +1,2 @@
-Se agrego caso para cotizar exepciones por precio en titulo
+Se agrego asistente por chat luego de crear un presupuesto
+Se actualizo el control de audio

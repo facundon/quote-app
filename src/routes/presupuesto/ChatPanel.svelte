@@ -3,12 +3,12 @@
 	import MessageBubble from './assistant/MessageBubble.svelte';
 	import ImageZoomModal from './assistant/ImageZoomModal.svelte';
 	import ChatComposer from './assistant/ChatComposer.svelte';
-	import { mapLineToCallback, type ChatMessage, type PendingMedia } from '$lib/chat/events';
+	import { mapLineToCallback, type UIChatMessage, type PendingMedia } from '$lib/chat/events';
 
 	const STORAGE_KEY = 'chat-messages' as const;
 	const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB limit for Groq
 
-	function loadMessages(): ChatMessage[] {
+	function loadMessages(): UIChatMessage[] {
 		if (!browser) return [];
 		try {
 			const saved = localStorage.getItem(STORAGE_KEY);
@@ -18,7 +18,7 @@
 		}
 	}
 
-	function saveMessages(msgs: ChatMessage[]) {
+	function saveMessages(msgs: UIChatMessage[]) {
 		if (!browser) return;
 		try {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
@@ -27,7 +27,15 @@
 		}
 	}
 
-	let messages = $state<ChatMessage[]>(loadMessages());
+	let messages = $state<UIChatMessage[]>(loadMessages());
+	let scrollContainer = $state<HTMLDivElement>();
+
+	$effect(() => {
+		messages.length;
+		if (!scrollContainer) return;
+		scrollContainer.scroll({ behavior: 'smooth', top: 999999 });
+	});
+
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
 	let pendingImage = $state<PendingMedia | null>(null);
@@ -210,6 +218,7 @@
 			}
 		} finally {
 			isLoading = false;
+			input = '';
 		}
 	}
 
@@ -239,7 +248,7 @@
 		{/if}
 	</div>
 
-	<div class="max-h-145 flex-1 overflow-y-auto p-4">
+	<div bind:this={scrollContainer} class="max-h-145 flex-1 overflow-y-auto p-4">
 		{#if messages.length === 0}
 			<div class="flex h-full flex-col items-center justify-center text-center text-slate-400">
 				<p class="mb-2 text-4xl">📋</p>
