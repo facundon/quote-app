@@ -2,6 +2,7 @@
 	import { marked } from 'marked';
 	import StatusBadge from './StatusBadge.svelte';
 	import type { ChatMessage, ChatUsage } from '$lib/chat/events';
+	import AudioTrack from './AudioTrack.svelte';
 
 	marked.setOptions({
 		breaks: true,
@@ -58,15 +59,13 @@
 			</button>
 		{/if}
 		{#if msg.audio}
-			<audio
-				controls
-				src="data:{msg.audioType || 'audio/webm'};base64,{msg.audio}"
-				class="mb-2 h-8 max-w-full"
-			></audio>
+			<AudioTrack audio={msg.audio} audioType={msg.audioType} />
 			{#if msg.transcript}
 				<p class="mt-1 text-xs italic {msg.role === 'user' ? 'text-blue-100' : 'text-slate-500'}">
 					"{msg.transcript}"
 				</p>
+			{:else}
+				<p>Transcribiendo...</p>
 			{/if}
 		{/if}
 		{#if msg.role === 'user' && !msg.audio}
