@@ -109,13 +109,12 @@ export interface ExtractionResult extends AgentResult<ExtractedStudy[]> {
 	transcript?: string;
 }
 
-const client = getGeminiClient();
-
 /**
  * Extract medical studies from the given input.
  * Uses structured output to ensure valid JSON.
  */
 export async function extractInputData(input: ExtractionInput): Promise<ExtractionResult> {
+	const client = getGeminiClient();
 	const startedAt = performance.now();
 
 	const inputKind: ExtractionMeta['inputKind'] = input.audio
