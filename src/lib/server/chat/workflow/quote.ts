@@ -158,7 +158,12 @@ export function calculateQuote(mappingResult: MappingResult): QuoteResult {
 	const { matched, unmatched } = mappingResult;
 	const allDiscounts = getAllDiscounts();
 
-	// Group studies by category
+	// Fixed-price studies are priced (and quoted) individually, bypassing their
+	// category's unit price and discount tiers entirely.
+	const fixedPriceStudies = matched.filter((s) => s.isFixedPrice);
+	const categoryPricedStudies = matched.filter((s) => !s.isFixedPrice);
+
+	// Group category-priced studies by category
 	const categoryGroups = new Map<
 		number,
 		{
@@ -168,7 +173,7 @@ export function calculateQuote(mappingResult: MappingResult): QuoteResult {
 		}
 	>();
 
-	for (const study of matched) {
+	for (const study of categoryPricedStudies) {
 		const detail: QuoteStudyDetail = {
 			name: study.catalogName,
 			original: study.original,
@@ -194,16 +199,44 @@ export function calculateQuote(mappingResult: MappingResult): QuoteResult {
 		}
 	}
 
-	// Calculate total quantity for discount calculation
+	// Calculate total quantity for discount calculation (fixed-price studies are
+	// priced independently and don't count toward category volume discounts)
 	let totalQuantity = 0;
 	for (const group of categoryGroups.values()) {
 		totalQuantity += group.quantity;
 	}
+	let fixedPriceQuantity = 0;
 
 	// Calculate line items
 	const lineItems: QuoteLineItem[] = [];
 	let totalSubtotal = 0;
 	let totalDiscountAmount = 0;
+
+	for (const study of fixedPriceStudies) {
+		const subtotal = study.quantity * study.unitPrice;
+		totalSubtotal += subtotal;
+		fixedPriceQuantity += study.quantity;
+
+		lineItems.push({
+			category: study.categoryName,
+			studies: [
+				{
+					name: study.catalogName,
+					original: study.original,
+					confidence: study.confidence,
+					matchMethod: study.matchMethod,
+					reasoning: study.reasoning,
+					extractionConfidence: study.extractionConfidence
+				}
+			],
+			quantity: study.quantity,
+			unitPrice: study.unitPrice,
+			subtotal,
+			discountPercentage: 0,
+			discountAmount: 0,
+			lineTotal: subtotal
+		});
+	}
 
 	for (const { category: cat, studies, quantity } of categoryGroups.values()) {
 		const subtotal = quantity * cat.unit_price;
@@ -244,7 +277,7 @@ export function calculateQuote(mappingResult: MappingResult): QuoteResult {
 	return {
 		lineItems,
 		summary: {
-			totalStudies: totalQuantity,
+			totalStudies: totalQuantity + fixedPriceQuantity,
 			subtotal: totalSubtotal,
 			totalDiscount: totalDiscountAmount,
 			finalTotal

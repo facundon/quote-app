@@ -82,6 +82,22 @@ export function getBundleMultiplier(catalogName: string): number {
 	return match ? Number(match[1]) : 1;
 }
 
+// ── Fixed Pricing ────────────────────────────────────────────────────
+
+/** Fixed price encoded in a catalog name, e.g. "Estudio X *40.000*" or "Estudio Y *$20.000*". */
+const FIXED_PRICE_REGEX = /\*\$?([\d.]+)\*/;
+
+/**
+ * Fixed price encoded directly in a catalog name (surrounded by `*`), which overrides
+ * the owning category's unit price, e.g. "Estudio especial *40.000*" -> 40000.
+ * Returns undefined when no fixed price is encoded.
+ */
+export function getFixedPrice(catalogName: string): number | undefined {
+	const match = catalogName.match(FIXED_PRICE_REGEX);
+	if (!match) return undefined;
+	return Number(match[1].replace(/\./g, ''));
+}
+
 // ── Formatting ───────────────────────────────────────────────────────
 
 /** Format the catalog grouped by category (for use in LLM prompts). */

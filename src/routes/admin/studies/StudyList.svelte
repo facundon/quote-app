@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { toastHelpers } from '$lib/utils/toast.js';
+	import { splitFixedPrice } from '$lib/utils/pricing';
 	type Category = { id: number; name: string };
 	type Study = { id: number; name: string; category_id: number };
 	let {
@@ -25,8 +26,16 @@
 			</h4>
 			<ul class="space-y-2">
 				{#each studies.filter((s) => s.category_id === cat.id) as study (study.id)}
+					{@const { label, price } = splitFixedPrice(study.name)}
 					<li class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 shadow-sm">
-						<span class="text-sm font-semibold text-slate-800">{study.name}</span>
+						<span class="flex items-center gap-2 text-sm font-semibold text-slate-800">
+							{label}
+							{#if price}
+								<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700"
+									>${price}</span
+								>
+							{/if}
+						</span>
 						<div class="flex items-center gap-2">
 							<button
 								class="flex items-center gap-1 rounded bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200"

@@ -39,8 +39,10 @@ export interface MappedStudy {
 	categoryName: string;
 	/** Category ID for pricing */
 	categoryId: number;
-	/** Unit price from category */
+	/** Unit price from category, or the study's own fixed price when `isFixedPrice` is true */
 	unitPrice: number;
+	/** True when `unitPrice` is a fixed price encoded in the study name, overriding the category price and any category discount */
+	isFixedPrice: boolean;
 	/** Quantity requested */
 	quantity: number;
 	/** Granular confidence level of the match */

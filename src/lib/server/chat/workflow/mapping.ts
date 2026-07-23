@@ -32,7 +32,8 @@ import {
 	getAllStudies,
 	findBestMatch,
 	formatCatalogByCategory,
-	getBundleMultiplier
+	getBundleMultiplier,
+	getFixedPrice
 } from './catalog';
 import { buildMappingPrompt } from '../prompts/mapping';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
@@ -119,13 +120,15 @@ function toMappedStudy(
 	match: CatalogStudy,
 	meta: { confidence: MappingConfidence; reasoning?: string }
 ): MappedStudy {
+	const fixedPrice = getFixedPrice(match.name);
 	return {
 		original: extracted.name,
 		catalogName: match.name,
 		catalogId: match.id,
 		categoryName: match.categoryName,
 		categoryId: match.categoryId,
-		unitPrice: match.unitPrice,
+		unitPrice: fixedPrice ?? match.unitPrice,
+		isFixedPrice: fixedPrice !== undefined,
 		quantity: extracted.quantity * getBundleMultiplier(match.name),
 		confidence: meta.confidence,
 		matchMethod: meta.confidence === 'exact' ? 'direct' : 'llm',

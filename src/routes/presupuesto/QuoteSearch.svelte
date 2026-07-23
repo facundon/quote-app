@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Category, Study } from './types';
 	import { matchesSearch } from '$lib/utils/search';
+	import { splitFixedPrice } from '$lib/utils/pricing';
 
 	let {
 		search,
@@ -59,10 +60,11 @@
 				class="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
 			>
 				{#each data.studies.filter((s: Study) => matchesSearch(s.name, search)) as s: Study, i (s.id)}
+					{@const { label, price } = splitFixedPrice(s.name)}
 					<li>
 						<button
 							type="button"
-							class="w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-blue-100 {highlightedIndex ===
+							class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm hover:bg-blue-100 {highlightedIndex ===
 							i
 								? 'bg-blue-100'
 								: ''}"
@@ -76,7 +78,13 @@
 								selectedStudy = s;
 							}}
 						>
-							{s.name}
+							{label}
+							{#if price}
+								<span
+									class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700"
+									>${price}</span
+								>
+							{/if}
 						</button>
 					</li>
 				{/each}

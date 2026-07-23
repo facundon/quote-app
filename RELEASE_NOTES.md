@@ -1,1 +1,1 @@
-Se agrego validador a presupuestador por chat
+Se agrego caso para cotizar exepciones por precio en titulo
