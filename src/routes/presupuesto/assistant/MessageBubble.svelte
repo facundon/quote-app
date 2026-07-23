@@ -33,10 +33,11 @@
 	interface Props {
 		msg: ChatMessage;
 		isReasoningOpen: boolean;
+		isLoading: boolean;
 		onImageClick: (image: string, type: string) => void;
 	}
 
-	let { msg, isReasoningOpen = $bindable(), onImageClick }: Props = $props();
+	let { msg, isLoading, isReasoningOpen = $bindable(), onImageClick }: Props = $props();
 </script>
 
 <div class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}">
@@ -64,8 +65,8 @@
 				<p class="mt-1 text-xs italic {msg.role === 'user' ? 'text-blue-100' : 'text-slate-500'}">
 					"{msg.transcript}"
 				</p>
-			{:else}
-				<p>Transcribiendo...</p>
+			{:else if isLoading}
+				<p class="mt-1 text-xs text-blue-50 italic">Transcribiendo...</p>
 			{/if}
 		{/if}
 		{#if msg.role === 'user' && !msg.audio}

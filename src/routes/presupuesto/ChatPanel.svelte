@@ -244,13 +244,15 @@
 			<div class="flex h-full flex-col items-center justify-center text-center text-slate-400">
 				<p class="mb-2 text-4xl">📋</p>
 				<p class="text-sm">Que podemos cotizar?</p>
-				<p class="mt-1 text-xs">Grabá tu pedido: "Necesito cotizar 5 hemogramas y 3 glucemias"</p>
+				<p class="mt-1 text-xs">
+					Grabá tu pedido: "Necesito cotizar un hemograma y perfil lipidico"
+				</p>
 				<p class="mt-2 text-xs">También podés pegar o arrastrar una imagen 📷</p>
 			</div>
 		{:else}
 			<div class="space-y-4">
 				{#each messages as msg}
-					<MessageBubble {msg} bind:isReasoningOpen onImageClick={openImageZoom} />
+					<MessageBubble {msg} bind:isReasoningOpen {isLoading} onImageClick={openImageZoom} />
 				{/each}
 				{#if isLoading}
 					<div class="flex justify-start">
@@ -279,6 +281,7 @@
 		bind:input
 		{isLoading}
 		bind:error
+		isFirstMessage={messages.length === 0}
 		onSend={sendMessage}
 		{onStopRecording}
 		onPaste={handlePaste}

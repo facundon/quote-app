@@ -82,9 +82,10 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 					}
 				}
 			}
+			lines.push('\n');
 
 			// Price info
-			const priceInfo = [`$${item.unitPrice.toLocaleString('es-AR')} c/u`];
+			const priceInfo = [`**Subtotal:** $${item.unitPrice.toLocaleString('es-AR')} c/u`];
 			if (item.quantity > 1) {
 				priceInfo.push(`× ${item.quantity}`);
 			}
@@ -126,13 +127,13 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 		lines.push(`Descuento: -$${quote.summary.totalDiscount.toLocaleString('es-AR')}`);
 	}
 
-	lines.push(`**Total: $${quote.summary.finalTotal.toLocaleString('es-AR')}**`);
-
 	if (quote.summary.totalStudies > 0) {
 		lines.push(
 			`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`
 		);
 	}
+
+	lines.push(`## **Total: $${quote.summary.finalTotal.toLocaleString('es-AR')}**`);
 
 	return lines.join('\n');
 }

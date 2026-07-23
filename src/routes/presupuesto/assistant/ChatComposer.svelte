@@ -9,6 +9,7 @@
 		input: string;
 		isLoading: boolean;
 		error: string | null;
+		isFirstMessage: boolean;
 		onSend: () => void;
 		onStopRecording: () => void;
 		onPaste: (e: ClipboardEvent) => void;
@@ -27,7 +28,8 @@
 		onStopRecording,
 		onPaste,
 		onClearImage,
-		onDiscardAudio
+		onDiscardAudio,
+		isFirstMessage = true
 	}: Props = $props();
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -71,7 +73,7 @@
 		</div>
 	{/if}
 	<div class="flex gap-1">
-		{#if !isRecording}
+		{#if !isRecording && !isFirstMessage}
 			<textarea
 				bind:value={input}
 				onkeydown={handleKeydown}
@@ -82,7 +84,13 @@
 				class="flex-3 resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition placeholder:text-slate-400 focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:bg-slate-100"
 			></textarea>
 		{/if}
-		<VoiceRecorder isDisabled={isLoading} bind:error bind:pendingAudio bind:isRecording {onStopRecording} />
+		<VoiceRecorder
+			isDisabled={isLoading}
+			bind:error
+			bind:pendingAudio
+			bind:isRecording
+			{onStopRecording}
+		/>
 		{#if !isRecording}
 			<button
 				type="button"
