@@ -26,13 +26,18 @@
 			</h4>
 			<ul class="space-y-2">
 				{#each studies.filter((s) => s.category_id === cat.id) as study (study.id)}
-					{@const { label, price } = splitFixedPrice(study.name)}
+					{@const { label, price, bundle } = splitFixedPrice(study.name)}
 					<li class="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-2 shadow-sm">
 						<span class="flex items-center gap-2 text-sm font-semibold text-slate-800">
 							{label}
 							{#if price}
 								<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700"
 									>${price}</span
+								>
+							{/if}
+							{#if bundle}
+								<span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700"
+									>x{bundle}</span
 								>
 							{/if}
 						</span>

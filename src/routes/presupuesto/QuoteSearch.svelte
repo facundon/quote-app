@@ -60,7 +60,7 @@
 				class="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
 			>
 				{#each data.studies.filter((s: Study) => matchesSearch(s.name, search)) as s: Study, i (s.id)}
-					{@const { label, price } = splitFixedPrice(s.name)}
+					{@const { label, price, bundle } = splitFixedPrice(s.name)}
 					<li>
 						<button
 							type="button"
@@ -83,6 +83,12 @@
 								<span
 									class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700"
 									>${price}</span
+								>
+							{/if}
+							{#if bundle}
+								<span
+									class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700"
+									>x{bundle}</span
 								>
 							{/if}
 						</button>
