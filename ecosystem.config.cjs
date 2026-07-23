@@ -56,7 +56,7 @@ module.exports = {
 
 				GEMINI_API_KEY: 'the key here',
 
-				BODY_SIZE_LIMIT: 'Infinity'
+				BODY_SIZE_LIMIT: '20M'
 			}
 		}
 	]

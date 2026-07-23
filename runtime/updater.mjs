@@ -351,11 +351,26 @@ async function pm2Stop(appName) {
 }
 
 /**
- * Start a PM2 app.
+ * Start a PM2 app, reloading it from ecosystem.config.cjs when available so
+ * env var changes in that file (e.g. BODY_SIZE_LIMIT) actually take effect.
+ * `pm2 start <appName>` alone reuses whatever env PM2 cached from the last
+ * time the app was started from the config file, silently ignoring edits.
  * @param {string} appName
+ * @param {string | null} ecosystemPath
  * @returns {Promise<boolean>}
  */
-async function pm2Start(appName) {
+async function pm2Start(appName, ecosystemPath) {
+	if (ecosystemPath && fs.existsSync(ecosystemPath)) {
+		console.log(`[pm2] Starting app from ${ecosystemPath}: ${appName}`);
+		const result = await pm2Command(['start', ecosystemPath, '--only', appName, '--update-env']);
+
+		if (result.success) return true;
+
+		console.log(`[pm2] Start via ecosystem file failed, falling back to start-by-name`);
+		console.log(`[pm2] Start output: ${result.output}`);
+		if (result.timedOut) console.log('[pm2] Start timed out');
+	}
+
 	console.log(`[pm2] Starting app: ${appName}`);
 	const result = await pm2Command(['start', appName]);
 
@@ -712,6 +727,7 @@ async function main() {
 	const releasesDir = path.join(base, ARGS.dirReleases);
 	const updatesDir = path.join(base, ARGS.dirUpdates);
 	const nextDir = path.join(releasesDir, version);
+	const ecosystemPath = path.join(base, 'ecosystem.config.cjs');
 
 	console.log(`[updater] Starting update to version ${version}`);
 	console.log(`[updater] Base: ${base}`);
@@ -797,7 +813,7 @@ async function main() {
 		// Try to restart server even if swap failed
 		if (usePM2) {
 			console.log('[updater] Attempting to restart server after failed swap...');
-			await pm2Start(pm2AppName);
+			await pm2Start(pm2AppName, ecosystemPath);
 		}
 
 		cleanupAndExit(3);
@@ -810,7 +826,7 @@ async function main() {
 	try {
 		if (usePM2) {
 			writeStatus('starting-server', { version, message: 'Starting server via PM2' });
-			const ok = await pm2Start(pm2AppName);
+			const ok = await pm2Start(pm2AppName, ecosystemPath);
 			if (!ok) throw new Error('PM2 failed to start the app');
 			console.log('[updater] Server started via PM2');
 		} else {

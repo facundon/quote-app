@@ -1,2 +1,1 @@
-Se agrego entrada manual en presupuestador
-Se mejoro respuestas en presupuesto por voz
+Se agrego validador a presupuestador por chat
