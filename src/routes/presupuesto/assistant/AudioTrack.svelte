@@ -44,6 +44,15 @@
 	}
 </script>
 
+<div class="hidden h-2/5 h-3/5 h-4/5"></div>
+{#snippet fullLine(height: string)}
+	<span class="h-{height} w-2 rounded-full bg-indigo-400"></span>
+{/snippet}
+{#snippet emptyLine(height: string)}
+	<span class="h-{height} w-2 rounded-full bg-slate-600 transition-colors group-hover:bg-slate-500"
+	></span>
+{/snippet}
+
 <div class="flex max-w-sm items-center gap-3 rounded-2xl bg-slate-800 p-2 text-slate-100 shadow-md">
 	<button
 		class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-white transition-colors hover:bg-indigo-600 focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-800 focus:outline-none"
@@ -60,17 +69,9 @@
 			</svg>
 		{/if}
 	</button>
-	<div class="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-		<!-- Waveform Visualizer & Progress -->
-		{#snippet fullLine(height: string)}
-			<span class="h-{height} w-1 rounded-full bg-indigo-400"></span>
-		{/snippet}
-		{#snippet emptyLine(height: string)}
-			<span
-				class="h-{height} w-1 rounded-full bg-slate-600 transition-colors group-hover:bg-slate-500"
-			></span>
-		{/snippet}
 
+	<!-- Waveform Visualizer & Progress -->
+	<div class="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
 		<div class="group relative flex h-6 cursor-pointer items-center gap-[3px]">
 			<button
 				type="button"

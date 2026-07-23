@@ -23,6 +23,7 @@ export interface PendingMedia {
 }
 
 export interface UIChatMessage extends ChatMessage {
+	content: string;
 	transcript?: string;
 	usage?: ChatUsage;
 	thoughts?: string;
