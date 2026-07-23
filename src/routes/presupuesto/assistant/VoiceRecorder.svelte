@@ -191,7 +191,7 @@
 		>
 			{#if isRecordingPaused}
 				<span>▶️</span>
-				<span>Resumir</span>
+				<span>Continuar</span>
 			{:else}
 				<span>⏸️</span>
 				<span>Pausar</span>
@@ -202,7 +202,8 @@
 			onclick={discardRecording}
 			class="flex items-center justify-center gap-2 rounded-lg border border-red-400 bg-red-400 px-3 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50"
 		>
-			<span>Cancelar</span>
+			<span>🗑️</span>
+			<span>Eliminar</span>
 		</button>
 	{/if}
 </div>

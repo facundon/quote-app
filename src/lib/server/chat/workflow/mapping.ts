@@ -11,14 +11,12 @@
  */
 
 import {
-	GoogleGenAI,
 	Type,
 	type FunctionDeclaration,
 	type Content,
 	type Schema,
 	type GenerateContentResponse
 } from '@google/genai';
-import { env } from '$env/dynamic/private';
 import type {
 	ExtractedStudy,
 	MappedStudy,
@@ -39,6 +37,7 @@ import {
 import { buildMappingPrompt } from '../prompts/mapping';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
 import { ThoughtChatEvent, type ChatEvent } from '$lib/chat/events';
+import { getGeminiClient } from '$lib/server/chat/gemini';
 
 const MAPPING_MODEL = MODEL_CONFIG.mapping;
 const PARSER_MODEL = MODEL_CONFIG.parser;
@@ -63,7 +62,7 @@ const getCatalogDeclaration: FunctionDeclaration = {
 	}
 };
 
-const mappingResponseSchema: Schema = {
+export const mappingResponseSchema: Schema = {
 	type: Type.OBJECT,
 	properties: {
 		mappings: {
@@ -94,17 +93,6 @@ const mappingResponseSchema: Schema = {
 	},
 	required: ['mappings']
 };
-
-let client: GoogleGenAI | null = null;
-
-function getClient(): GoogleGenAI {
-	if (!client) {
-		const apiKey = env.GEMINI_API_KEY;
-		if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
-		client = new GoogleGenAI({ apiKey });
-	}
-	return client;
-}
 
 function emptyUsage(): TokenUsage {
 	return { inputTokens: 0, outputTokens: 0 };
@@ -197,7 +185,7 @@ async function llmMapRemaining(
 	const systemInstruction = buildMappingPrompt();
 
 	for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-		const stream = await getClient().models.generateContentStream({
+		const stream = await getGeminiClient().models.generateContentStream({
 			model: MAPPING_MODEL.name,
 			contents,
 			config: {
@@ -247,7 +235,7 @@ async function llmMapRemaining(
 		role: 'user',
 		parts: [{ text: 'Devolvé ahora el JSON final con el mapeo de estos estudios.' }]
 	});
-	const finalResponse = await getClient().models.generateContent({
+	const finalResponse = await getGeminiClient().models.generateContent({
 		model: PARSER_MODEL.name,
 		contents,
 		config: {

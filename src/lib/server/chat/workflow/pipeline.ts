@@ -21,6 +21,7 @@ import {
 	TranscriptChatEvent,
 	type ChatEvent
 } from '$lib/chat/events';
+import { validateMapping } from '$lib/server/chat/workflow/validator';
 
 /**
  * Singleton ExtractionAgent instance for the app's pipeline.
@@ -205,10 +206,14 @@ export async function processMessage(
 		};
 	}
 
-	console.log('[Pipeline] Stage 3: Quote calculation');
+	console.log('[Pipeline] Stage 3: Validation');
+	const validation = await validateMapping(mapping, emit);
+	if (validation.usage) addToCost(totalUsage, validation.usage, validation.cost);
+
+	console.log('[Pipeline] Stage 4: Quote calculation');
 	emit(new StatusChatEvent('Generando presupuesto...'));
 
-	const quote: QuoteResult = quoteAgent.calculate(mapping);
+	const quote: QuoteResult = quoteAgent.calculate(validation.mapping);
 	console.log('[Pipeline] Quote calculated:', quote.summary);
 
 	const response = quoteAgent.formatResponse(quote);

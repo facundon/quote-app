@@ -11,6 +11,7 @@ import {
 	AUDIO_ONLY_PROMPT
 } from '../prompts/extraction';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
+import { getGeminiClient } from '$lib/server/chat/gemini';
 
 const EXTRACTION_MODEL = MODEL_CONFIG.extraction;
 
@@ -115,7 +116,7 @@ export class ExtractionAgent {
 	private client: GoogleGenAI;
 
 	constructor(apiKey: string) {
-		this.client = new GoogleGenAI({ apiKey });
+		this.client = getGeminiClient();
 	}
 
 	/**
