@@ -148,12 +148,11 @@
 						error = error;
 					},
 					onThought(thought) {
-						messages[assistantIndex].thoughts = (messages[assistantIndex].thoughts ?? '') + thought;
+						messages[assistantIndex].thoughts += thought;
 					}
 				});
 			}
 		}
-		console.log(messages);
 	}
 
 	async function sendMessage() {

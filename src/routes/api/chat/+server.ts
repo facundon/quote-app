@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { processConversation, type PipelineChatMessage } from '$lib/server/chat/workflow';
+import type { ChatMessage } from '$lib/server/chat/workflow/types';
+import { processConversation } from '$lib/server/chat/workflow/pipeline';
 
 interface ChatRequest {
-	messages: PipelineChatMessage[];
+	messages: ChatMessage[];
 }
 
 export const POST: RequestHandler = async ({ request }) => {

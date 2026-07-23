@@ -4,8 +4,8 @@
  * substring) rather than a stricter comparison.
  */
 
-import type { ExtractedStudy } from '../../../src/lib/server/chat/agents/types';
 import type { ExpectedStudy, Grader, GradeResult } from './index';
+import type { ExtractedStudy } from '../../../src/lib/server/chat/workflow/types';
 
 function normalize(name: string): string {
 	return name

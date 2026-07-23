@@ -179,3 +179,15 @@ export interface PipelineResponse {
 		costArs?: number;
 	};
 }
+export interface ChatMessage {
+	role: 'user' | 'assistant';
+	content?: string;
+	/** Base64-encoded image data (without data URL prefix) */
+	image?: string;
+	/** MIME type of the image */
+	imageType?: string;
+	/** Base64-encoded audio data (without data URL prefix) */
+	audio?: string;
+	/** MIME type of the audio */
+	audioType?: string;
+}

@@ -1,4 +1,4 @@
-import type { QuoteResult } from '$lib/server/chat/workflow';
+import type { QuoteResult } from '$lib/server/chat/workflow/types';
 
 export const ChatEventType = {
 	TRANSCRIPT: 'transcript',

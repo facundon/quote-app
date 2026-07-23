@@ -9,13 +9,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import {
-	ExtractionAgent,
-	type ExtractionMeta,
-	type ExtractionUsage
-} from '../../src/lib/server/chat/agents/extraction';
-import type { ExtractedStudy } from '../../src/lib/server/chat/agents/types';
 import { graders, type ExpectedStudy } from './graders/index';
+import {
+	extractInputData,
+	ExtractionMeta,
+	ExtractionUsage
+} from '../../src/lib/server/chat/workflow/extraction';
+import { ExtractedStudy } from '../../src/lib/server/chat/workflow/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -94,8 +94,8 @@ interface CaseRun {
 	caseScore: number;
 }
 
-async function runCase(agent: ExtractionAgent, testCase: Case): Promise<CaseRun> {
-	const result = await agent.extract({
+async function runCase<T extends Function>(fn: T, testCase: Case): Promise<CaseRun> {
+	const result = await fn({
 		text: testCase.input.text,
 		image: testCase.input.imagePath ? loadImage(testCase.input.imagePath) : undefined,
 		imageType: testCase.input.imageType
@@ -204,7 +204,9 @@ function printHumanReport(runs: CaseRun[], args: Args) {
 		if (run.error) {
 			const latency = run.meta ? `${run.meta.durationMs}ms` : 'n/a';
 			console.log(`✗ ${run.case.id} — ERROR: ${run.error}`);
-			console.log(`    ${formatTokens(run.usage)} | ${latency} | input: ${run.meta?.inputKind ?? 'n/a'}`);
+			console.log(
+				`    ${formatTokens(run.usage)} | ${latency} | input: ${run.meta?.inputKind ?? 'n/a'}`
+			);
 			if (run.meta?.finishReason) {
 				console.log(`    finishReason: ${run.meta.finishReason}`);
 			}
@@ -283,8 +285,7 @@ async function main() {
 		process.exit(1);
 	}
 
-	const agent = new ExtractionAgent(apiKey);
-	const runs = await runWithConcurrency(cases, CONCURRENCY, (c) => runCase(agent, c));
+	const runs = await runWithConcurrency(cases, CONCURRENCY, (c) => runCase(extractInputData, c));
 	const report = buildReport(runs, args.minScore);
 
 	if (args.json) {

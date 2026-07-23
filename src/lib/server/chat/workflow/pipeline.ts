@@ -7,12 +7,10 @@
  * 3. QuoteAgent: Calculate quote and format response
  */
 
-import { env } from '$env/dynamic/private';
 import { convertUsdToArs, getUsdToArsRate } from '$lib/server/exchange/usdToArs';
-import { ExtractionAgent, type ExtractionResult } from './extraction';
+import { extractInputData, type ExtractionResult } from './extraction';
 import { mapStudies, type MappingWorkflowResult } from './mapping';
-import { getQuoteAgent } from './quote';
-import { type PipelineResponse, type QuoteResult, type TokenUsage } from './types';
+import type { ChatMessage, PipelineResponse, QuoteResult, TokenUsage } from './types';
 import {
 	ErrorChatEvent,
 	FinishChatEvent,
@@ -22,37 +20,12 @@ import {
 	type ChatEvent
 } from '$lib/chat/events';
 import { validateMapping } from '$lib/server/chat/workflow/validator';
-
-/**
- * Singleton ExtractionAgent instance for the app's pipeline.
- * Kept out of extraction.ts so that file has no SvelteKit dependency and
- * can be imported directly by the extraction eval harness (evals/extraction).
- */
-let extractionAgentInstance: ExtractionAgent | null = null;
-
-function getExtractionAgent(): ExtractionAgent {
-	if (!extractionAgentInstance) {
-		const apiKey = env.GEMINI_API_KEY;
-		if (!apiKey) {
-			throw new Error('GEMINI_API_KEY not configured');
-		}
-		extractionAgentInstance = new ExtractionAgent(apiKey);
-	}
-	return extractionAgentInstance;
-}
-
-export interface ChatMessage {
-	role: 'user' | 'assistant';
-	content?: string;
-	/** Base64-encoded image data (without data URL prefix) */
-	image?: string;
-	/** MIME type of the image */
-	imageType?: string;
-	/** Base64-encoded audio data (without data URL prefix) */
-	audio?: string;
-	/** MIME type of the audio */
-	audioType?: string;
-}
+import {
+	calculateQuote,
+	formatQuoteEmptyResponse,
+	formatQuoteErrorResponse,
+	formatQuoteResponse
+} from '$lib/server/chat/workflow/quote';
 
 interface PipelineUsage {
 	inputTokens: number;
@@ -94,9 +67,6 @@ export async function processMessage(
 		controller.enqueue(encoder.encode(payload));
 	};
 
-	const extractionAgent = getExtractionAgent();
-	const quoteAgent = getQuoteAgent();
-
 	const totalUsage: PipelineUsage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
 	console.log('[Pipeline] Stage 1: Extraction');
@@ -109,7 +79,7 @@ export async function processMessage(
 		emit(new StatusChatEvent('Procesando tu consulta...'));
 	}
 
-	const extractionResult: ExtractionResult = await extractionAgent.extract({
+	const extractionResult: ExtractionResult = await extractInputData({
 		text: message.content,
 		image: message.image,
 		imageType: message.imageType,
@@ -123,9 +93,7 @@ export async function processMessage(
 
 	if (!extractionResult.success) {
 		console.error('[Pipeline] Extraction failed:', extractionResult.error);
-		const errorMsg = quoteAgent.formatErrorResponse(
-			extractionResult.error || 'Error de extracción'
-		);
+		const errorMsg = formatQuoteErrorResponse(extractionResult.error || 'Error de extracción');
 
 		emit(new ErrorChatEvent(errorMsg));
 		emit(new FinishChatEvent({ usage: await withArsCost(totalUsage) }));
@@ -143,7 +111,7 @@ export async function processMessage(
 	console.log(`[Pipeline] Extracted ${extractedStudies.length} studies:`, extractedStudies);
 
 	if (extractedStudies.length === 0) {
-		const emptyMsg = quoteAgent.formatEmptyResponse();
+		const emptyMsg = formatQuoteEmptyResponse();
 
 		emit(new TextDeltaChatEvent(emptyMsg));
 		emit(new FinishChatEvent({ usage: await withArsCost(totalUsage) }));
@@ -162,7 +130,7 @@ export async function processMessage(
 
 	if (!mappingResult.success) {
 		console.error('[Pipeline] Mapping failed:', mappingResult.error);
-		const errorMsg = quoteAgent.formatErrorResponse(mappingResult.error || 'Error de mapeo');
+		const errorMsg = formatQuoteErrorResponse(mappingResult.error || 'Error de mapeo');
 
 		emit(new TextDeltaChatEvent(errorMsg));
 		emit(new FinishChatEvent({ usage: await withArsCost(totalUsage) }));
@@ -213,10 +181,10 @@ export async function processMessage(
 	console.log('[Pipeline] Stage 4: Quote calculation');
 	emit(new StatusChatEvent('Generando presupuesto...'));
 
-	const quote: QuoteResult = quoteAgent.calculate(validation.mapping);
+	const quote: QuoteResult = calculateQuote(validation.mapping);
 	console.log('[Pipeline] Quote calculated:', quote.summary);
 
-	const response = quoteAgent.formatResponse(quote);
+	const response = formatQuoteResponse(quote);
 	const finalUsage = await withArsCost(totalUsage);
 
 	emit(new TextDeltaChatEvent(response));
@@ -249,9 +217,3 @@ export async function processConversation(
 
 	return processMessage(lastUserMessage, controller);
 }
-
-/**
- * Re-export types for convenience.
- */
-export type { ChatMessage as PipelineChatMessage };
-export type { PipelineResponse };
