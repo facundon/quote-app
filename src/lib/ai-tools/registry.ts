@@ -40,5 +40,6 @@ export async function resolveToolUsage(tool: FunctionCall, context?: ToolContext
 	}
 
 	console.log(`[Tool Runner] Executing: ${name}`);
+	console.dir(tool, { depth: 4 });
 	return currentTool.execute(tool.args, context);
 }

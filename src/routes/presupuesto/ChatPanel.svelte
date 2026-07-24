@@ -32,8 +32,10 @@
 
 	$effect(() => {
 		messages.length;
-		if (!scrollContainer) return;
-		scrollContainer.scroll({ top: 999999 });
+		setTimeout(() => {
+			if (!scrollContainer) return;
+			scrollContainer.scroll({ behavior: 'smooth', top: 999999 });
+		}, 500);
 	});
 
 	let isLoading = $state(false);

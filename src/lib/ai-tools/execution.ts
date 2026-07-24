@@ -11,6 +11,7 @@ interface AgentOptions {
 	context?: ToolContext;
 	onChunk?: (chunkText: string) => void;
 	onThought?: (chunkText: string) => void;
+	onStatus?: (status: string) => void;
 }
 
 interface PendingFunctionCall {
@@ -43,14 +44,34 @@ async function processStream(
 	const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
 	for await (const event of stream) {
-		if (event.event_id) interactionId = event.event_id;
+		if (
+			event.event_type === 'interaction.created' ||
+			event.event_type === 'interaction.completed'
+		) {
+			interactionId = event.interaction.id;
+			if (event.interaction.usage) {
+				usage.inputTokens = event.interaction.usage.total_input_tokens ?? 0;
+				usage.outputTokens = event.interaction.usage.total_output_tokens ?? 0;
+			}
+		}
 
-		if (event.event_type === 'step.start' && event.step.type === 'function_call') {
-			pendingFunctionCalls.set(event.index, {
-				id: event.step.id,
-				name: event.step.name,
-				args: ''
-			});
+		if (event.event_type === 'step.start') {
+			if (event.step.type === 'function_call') {
+				pendingFunctionCalls.set(event.index, {
+					id: event.step.id,
+					name: event.step.name,
+					args: ''
+				});
+				options.onStatus?.(`Ejecutando ${event.step.name}...`);
+			} else if (event.step.type === 'model_output') {
+				options.onStatus?.('Generando respuesta...');
+			} else if (event.step.type === 'thought') {
+				options.onStatus?.('Analizando...');
+			}
+		}
+
+		if (event.event_type === 'error') {
+			throw new Error(`[Interactions API] ${event.error?.code}: ${event.error?.message}`);
 		}
 
 		if (event.event_type === 'step.delta') {
@@ -73,8 +94,6 @@ async function processStream(
 		}
 
 		if (event.event_type === 'step.stop') {
-			usage.inputTokens = event.metadata?.total_usage?.total_input_tokens ?? 0;
-			usage.outputTokens = event.metadata?.total_usage?.total_output_tokens ?? 0;
 			const pending = pendingFunctionCalls.get(event.index);
 			if (pending) {
 				accumulatedFunctionCalls.push({
@@ -101,6 +120,7 @@ export async function runModelInteractions(
 	let currentTurn = 0;
 	let previousInteractionId: string | undefined = undefined;
 	let currentInput: Parameters<typeof client.interactions.create>['0']['input'] = config.input;
+	const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
 	while (currentTurn < maxTurns) {
 		currentTurn++;
@@ -119,12 +139,18 @@ export async function runModelInteractions(
 		const pendingFunctionCalls = new Map<number, PendingFunctionCall>();
 		const accumulatedFunctionCalls: AcumulatedFunctionsCall[] = [];
 
-		const { interactionId, fullText, usage } = await processStream(stream, {
+		const {
+			interactionId,
+			fullText,
+			usage: loopUsage
+		} = await processStream(stream, {
 			pendingFunctionCalls,
 			accumulatedFunctionCalls,
 			options
 		});
 
+		usage.inputTokens += loopUsage.inputTokens;
+		usage.outputTokens += loopUsage.outputTokens;
 		previousInteractionId = interactionId;
 
 		if (accumulatedFunctionCalls.length === 0) return { fullText, usage };

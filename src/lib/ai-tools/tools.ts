@@ -4,7 +4,9 @@ import { defineTool, type ToolContext } from './types';
 import { createStudy } from '$lib/mutations/study';
 import { formatCatalogByCategory, type CatalogStudy } from '$lib/server/chat/workflow/catalog';
 
-function assertCreateStudyArgs(args: unknown): asserts args is { name: string; category_id: number } {
+function assertCreateStudyArgs(
+	args: unknown
+): asserts args is { name: string; category_id: number } {
 	const candidate = args as { name?: unknown; category_id?: unknown } | null;
 	if (typeof candidate?.name !== 'string' || typeof candidate?.category_id !== 'number') {
 		throw new Error('create_study tool called with invalid arguments');
@@ -23,7 +25,11 @@ const listCategoriesToolSchema = {
 	name: 'list_categories',
 	description:
 		'Tool to list all the categories within the system. The categories have studies linked to them. Use it to gather information about the existent categories, such as their names and ids',
-	parameters: {},
+	parameters: {
+		type: Type.OBJECT,
+		properties: {},
+		required: []
+	},
 	response: {
 		type: Type.ARRAY,
 		properties: {

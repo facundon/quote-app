@@ -40,7 +40,8 @@ export async function processMessagesWithAssistant(
 		},
 		{
 			onChunk: (chunkText) => emit(new TextDeltaChatEvent(chunkText)),
-			onThought: (chunkText) => emit(new ThoughtChatEvent(chunkText))
+			onThought: (chunkText) => emit(new ThoughtChatEvent(chunkText)),
+			onStatus: (status) => emit(new StatusChatEvent(status))
 		}
 	);
 

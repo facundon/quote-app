@@ -1,2 +1,1 @@
-Se agrego asistente por chat luego de crear un presupuesto
-Se actualizo el control de audio
+Se dio habilidad al asistente para listar categorias y crear estudios
