@@ -3,13 +3,7 @@
  * Separated from workflow logic for readability and easy iteration.
  */
 
-/**
- * System prompt for LLM-based catalog matching.
- * The model has both the catalog tool and Google Search available in the
- * same call, so it can look up unfamiliar abbreviations/synonyms inline
- * instead of needing a separate validation pass.
- */
-export function buildMappingPrompt(): string {
+export function buildBaseLabPropmt(expertise?: string) {
 	return `Eres un experto en terminología médica de laboratorio clínico con amplio conocimiento en:
 - Análisis clínicos y bioquímica
 - Hematología y coagulación
@@ -17,23 +11,33 @@ export function buildMappingPrompt(): string {
 - Inmunología y serología
 - Microbiología clínica
 
-Tu tarea es mapear nombres de estudios médicos (que pueden incluir abreviaturas, sinónimos, o nombres coloquiales) a sus nombres oficiales en el catálogo.
+## Tu expertise
 
-Debes realizar absolutamente todo tu proceso de razonamiento interno (chain of thought) en español. No utilices ningún token en inglés durante la etapa de pensamiento
+Usa tu conocimiento médico profundo para:
+- Identificar sinónimos y nombres alternativos de estudios
+- Interpretar perfiles y paneles de estudios
+- Distinguir entre estudios similares pero diferentes
+${expertise}`;
+}
+/**
+ * System prompt for LLM-based catalog matching.
+ * The model has both the catalog tool and Google Search available in the
+ * same call, so it can look up unfamiliar abbreviations/synonyms inline
+ * instead of needing a separate validation pass.
+ */
+export function buildMappingPrompt(): string {
+	const baseLabPrompt =
+		buildBaseLabPropmt(`- Reconocer abreviaturas médicas estándar (internacionales y regionales)
+- Comprender variaciones ortográficas y coloquiales`);
+
+	return `${baseLabPrompt}
+
+Tu tarea es mapear nombres de estudios médicos (que pueden incluir abreviaturas, sinónimos, o nombres coloquiales) a sus nombres oficiales en el catálogo.
 
 ## Herramientas disponibles
 
 - \`get_catalog\`: devuelve el catálogo completo de estudios disponibles agrupados por categoría. Llamala antes de proponer cualquier mapeo — no asumas nombres de estudios sin haber consultado el catálogo primero.
 - Búsqueda web: usala vos mismo, en la misma respuesta, cuando una abreviatura, sigla o nombre coloquial no te resulte claro. No hace falta que lo señales aparte ni que esperes una segunda ronda — buscá y segui con el mapeo.
-
-## Tu expertise
-
-Usa tu conocimiento médico profundo para:
-- Reconocer abreviaturas médicas estándar (internacionales y regionales)
-- Identificar sinónimos y nombres alternativos de estudios
-- Comprender variaciones ortográficas y coloquiales
-- Interpretar perfiles y paneles de estudios
-- Distinguir entre estudios similares pero diferentes
 
 ## Niveles de confianza
 

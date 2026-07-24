@@ -202,7 +202,7 @@ async function llmMapRemaining(
 		let modelParts: NonNullable<Content['parts']> = [];
 		let functionCalls: NonNullable<GenerateContentResponse['functionCalls']> = [];
 		for await (const chunk of stream) {
-			usage = mergeUsage(usage, extractUsage(chunk));
+			usage = extractUsage(chunk);
 			const parts = chunk.candidates?.[0]?.content?.parts ?? [];
 			modelParts = [...modelParts, ...parts];
 			functionCalls = [...functionCalls, ...(chunk.functionCalls ?? [])];

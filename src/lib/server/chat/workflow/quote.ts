@@ -22,17 +22,17 @@ function getCategoryById(id: number): Category | undefined {
 	return db.select().from(category).where(eq(category.id, id)).get();
 }
 
+const badges: Record<MappingConfidence, string> = {
+	exact: '✅',
+	high: '🟢',
+	medium: '🟡',
+	low: '🔴'
+};
+
 /**
  * Return an emoji badge representing the confidence level of a study match.
  */
 function confidenceBadge(study: QuoteStudyDetail): string {
-	const badges: Record<MappingConfidence, string> = {
-		exact: '✅',
-		high: '🟢',
-		medium: '🟡',
-		low: '🔴'
-	};
-
 	const badge = badges[study.confidence] ?? '❓';
 
 	// Add extraction warning if the name was hard to read
@@ -59,29 +59,19 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 
 		for (const item of quote.lineItems) {
 			// Category header with studies
-			if (item.studies.length === 1) {
-				const study = item.studies[0];
-				lines.push(`- **${study.name}** ${confidenceBadge(study)}`);
+			lines.push(`- **${item.category}** (${item.quantity} estudios)`);
+			for (const study of item.studies) {
+				const badge = confidenceBadge(study);
 				if (study.original !== study.name) {
-					lines.push(`  _"${study.original}"_ → ${study.name}`);
+					lines.push(`  - ${study.name} ${badge} — _"${study.original}"_`);
+				} else {
+					lines.push(`  - ${study.name} ${badge}`);
 				}
 				if (study.reasoning) {
-					lines.push(`  _${study.reasoning}_`);
-				}
-			} else {
-				lines.push(`- **${item.category}** (${item.quantity} estudios)`);
-				for (const study of item.studies) {
-					const badge = confidenceBadge(study);
-					if (study.original !== study.name) {
-						lines.push(`  - ${study.name} ${badge} — _"${study.original}"_`);
-					} else {
-						lines.push(`  - ${study.name} ${badge}`);
-					}
-					if (study.reasoning) {
-						lines.push(`    _${study.reasoning}_`);
-					}
+					lines.push(`    _${study.reasoning}_`);
 				}
 			}
+
 			lines.push('\n');
 
 			// Price info
@@ -116,17 +106,18 @@ export function formatQuoteResponse(quote: QuoteResult): string {
 		item.studies.some((s) => s.confidence !== 'exact')
 	);
 	if (hasNonExact) {
-		lines.push('> ✅ Exacto · 🟢 Alta confianza · 🟡 Media confianza · 🔴 Baja confianza\n');
-	}
-
-	if (quote.summary.totalStudies > 0) {
 		lines.push(
-			`\n_${quote.summary.totalStudies} estudio${quote.summary.totalStudies > 1 ? 's' : ''} cotizado${quote.summary.totalStudies > 1 ? 's' : ''}_`
+			`> ${badges.exact} Exacto · ${badges.high} Alta confianza · ${badges.medium} Media confianza · ${badges.low} Baja confianza`
 		);
 	}
-
 	// Summary
-	lines.push('---\n');
+	lines.push('\n---\n');
+
+	if (quote.summary.totalStudies > 0) {
+		const studiesText = `estudio${quote.summary.totalStudies > 1 ? 's' : ''}`;
+		const quotedText = `cotizado${quote.summary.totalStudies > 1 ? 's' : ''}`;
+		lines.push(`_${quote.summary.totalStudies} ${studiesText} ${quotedText}_`);
+	}
 
 	if (quote.summary.totalDiscount > 0) {
 		lines.push(`Subtotal: $${quote.summary.subtotal.toLocaleString('es-AR')}`);

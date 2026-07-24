@@ -33,7 +33,7 @@
 	$effect(() => {
 		messages.length;
 		if (!scrollContainer) return;
-		scrollContainer.scroll({ behavior: 'smooth', top: 999999 });
+		scrollContainer.scroll({ top: 999999 });
 	});
 
 	let isLoading = $state(false);
@@ -156,6 +156,7 @@
 						error = error;
 					},
 					onThought(thought) {
+						if (!messages[assistantIndex].thoughts) messages[assistantIndex].thoughts = '';
 						messages[assistantIndex].thoughts += thought;
 					}
 				});
@@ -263,16 +264,6 @@
 				{#each messages as msg}
 					<MessageBubble {msg} bind:isReasoningOpen {isLoading} onImageClick={openImageZoom} />
 				{/each}
-				{#if isLoading}
-					<div class="flex justify-start">
-						<div class="rounded-lg border border-slate-200 bg-white px-4 py-2">
-							<div class="flex items-center gap-2 text-sm text-slate-500">
-								<span class="animate-pulse">●</span>
-								<span>Analizando y calculando...</span>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>

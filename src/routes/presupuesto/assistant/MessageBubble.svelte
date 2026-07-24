@@ -92,9 +92,7 @@
 				{@html renderMarkdown(msg.content)}
 			</div>
 			{#if msg.statusText}
-				<div class="mt-2">
-					<StatusBadge statusText={msg.statusText} />
-				</div>
+				<StatusBadge statusText={msg.statusText} />
 			{/if}
 		{/if}
 		{#if msg.usage}

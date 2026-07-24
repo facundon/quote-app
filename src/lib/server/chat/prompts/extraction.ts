@@ -39,16 +39,6 @@ Salida: [{"name": "hemogramas", "quantity": 3, "confidence": "high"}, {"name": "
 Entrada: "HGM, uremia, creatinina x2"
 Salida: [{"name": "HGM", "quantity": 1, "confidence": "high"}, {"name": "uremia", "quantity": 1, "confidence": "high"}, {"name": "creatinina", "quantity": 2, "confidence": "high"}]
 
-## Importante
-
-La receta puede contener:
-- Nombre del paciente
-- Nombre del médico (con su firma)
-- Nombre del hospital
-- Nombre del centro de salud
-- Nombre del servicio
-- Diagnostico (usualmente como DX)
-
 Ademas:
 - NO intentes mapear a nombres oficiales, solo extrae lo que ves/escuchás
 - NO calcules precios ni cotizaciones
@@ -58,7 +48,16 @@ Ademas:
 /**
  * Default prompt when only an image is provided without text.
  */
-export const IMAGE_ONLY_PROMPT = 'Extraé todos los estudios médicos que aparecen en esta imagen.';
+export const IMAGE_ONLY_PROMPT = `Extraé todos los estudios médicos que aparecen en esta imagen.
+## Importante
+
+La receta puede contener:
+- Nombre del paciente
+- Nombre del médico (con su firma)
+- Nombre del hospital
+- Nombre del centro de salud
+- Nombre del servicio
+- Diagnostico (usualmente como DX)`;
 
 /**
  * Default prompt when only audio is provided without text.

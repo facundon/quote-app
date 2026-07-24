@@ -41,7 +41,7 @@ export async function processMessagesWithAssistant(
 	const client = getGeminiClient();
 	const emit = getEventEmitter<ChatEvent>(controller);
 
-	emit(new StatusChatEvent('Interpretando'));
+	emit(new StatusChatEvent('Procesando tu consulta...'));
 
 	const stream = await client.models.generateContentStream({
 		model: MODEL.name,

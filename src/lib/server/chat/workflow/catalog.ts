@@ -7,6 +7,8 @@ import { db } from '../../db';
 import { study, category } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
+const LLM_FALLBACK_COVERAGE_RATIO = 0.5;
+
 /** A catalog study enriched with its category and pricing info. */
 export interface CatalogStudy {
 	id: number;
@@ -59,12 +61,34 @@ export function findSubstringMatch(
 ): CatalogStudy | undefined {
 	const normalized = normalize(name);
 
-	// Catalog name contains the query
-	const match = catalog.find((s) => normalize(s.name).includes(normalized));
-	if (match) return match;
+	// A catalog name containing the whole query is the more specific match
+	// (e.g. "clearence de creatinina" -> "CDC (Clearence de Creatinina)..."
+	// rather than the shorter, unrelated "Creatinina"), so check it first.
+	const containingQuery = catalog.filter((s) => normalize(s.name).includes(normalized));
+	if (containingQuery.length > 0) {
+		return containingQuery.reduce((best, s) =>
+			normalize(s.name).length < normalize(best.name).length ? s : best
+		);
+	}
 
-	// Query contains catalog name (handles abbreviations expanded in query)
-	return catalog.find((s) => normalized.includes(normalize(s.name)));
+	// Only trust "query contains catalog name" when the catalog name covers a
+	// good share of the query — a short catalog name like "Creatinina" is a
+	// substring of many unrelated longer phrases ("Clearance de creatinina",
+	// a distinct study), so a low-coverage hit is more likely a false
+	// positive than a real match. Below this ratio, leave it unmatched so it
+	// falls through to the LLM mapping stage instead of a wrong direct match.
+	const containedByQuery = catalog.filter(
+		(s) =>
+			normalized.includes(normalize(s.name)) &&
+			normalize(s.name).length / normalized.length >= LLM_FALLBACK_COVERAGE_RATIO
+	);
+	if (containedByQuery.length > 0) {
+		return containedByQuery.reduce((best, s) =>
+			normalize(s.name).length > normalize(best.name).length ? s : best
+		);
+	}
+
+	return undefined;
 }
 
 /** Try exact match first, then fall back to substring match. */

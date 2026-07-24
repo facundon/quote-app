@@ -29,7 +29,7 @@
 	<div
 		class="animate-in fade-in slide-in-from-top-1 inline-flex items-center gap-2.5 rounded-full border border-indigo-900/60 bg-[#1e1b4b] px-3.5 py-1.5 text-xs font-medium text-white shadow-md duration-200"
 	>
-		<span class="relative flex h-2 w-2 shrink-0 items-center justify-center">
+		<span class="relative flex h-2 w-2 shrink-0 animate-pulse items-center justify-center">
 			<span class="absolute inline-flex h-3 w-3 animate-pulse rounded-full bg-indigo-400 opacity-75"
 			></span>
 			<span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-300"></span>
