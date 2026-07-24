@@ -1,4 +1,5 @@
-import type { ChatMessage, QuoteResult } from '$lib/server/chat/workflow/types';
+import type { QuoteResult } from '$lib/server/chat/workflow/types';
+import type { ChatMessage } from '$lib/ai-tools/types';
 
 export const ChatEventType = {
 	TRANSCRIPT: 'transcript',

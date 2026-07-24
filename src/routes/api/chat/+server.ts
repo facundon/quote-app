@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { ChatMessage } from '$lib/server/chat/workflow/types';
+import type { ChatMessage } from '$lib/ai-tools/types';
 import { processConversation } from '$lib/server/chat/workflow/pipeline';
 
 interface ChatRequest {

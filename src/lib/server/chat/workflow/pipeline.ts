@@ -10,7 +10,9 @@
 import { convertUsdToArs, getUsdToArsRate } from '$lib/server/exchange/usdToArs';
 import { extractInputData, type ExtractionResult } from './extraction';
 import { mapStudies, type MappingWorkflowResult } from './mapping';
-import type { ChatMessage, PipelineResponse, QuoteResult, TokenUsage } from './types';
+import type { PipelineResponse, QuoteResult } from './types';
+import type { TokenUsage } from '$lib/ai-tools/types';
+import type { ChatMessage } from '$lib/ai-tools/types';
 import {
 	ErrorChatEvent,
 	FinishChatEvent,

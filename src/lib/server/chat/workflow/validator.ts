@@ -2,9 +2,9 @@ import { Type, type Schema } from '@google/genai';
 import { StatusChatEvent, ThoughtChatEvent, type ChatEvent } from '$lib/chat/events';
 import { getGeminiClient } from '$lib/server/chat/gemini';
 import { getValidatorSystemPrompt } from '$lib/server/chat/prompts/validator';
-import { normalize } from '$lib/server/chat/workflow/catalog';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
-import type { MappingResult, MappedStudy, TokenUsage } from '$lib/server/chat/workflow/types';
+import type { MappingResult } from '$lib/server/chat/workflow/types';
+import type { TokenUsage } from '$lib/ai-tools/types';
 
 const VALIDATOR_MODEL = MODEL_CONFIG.validator;
 
@@ -35,7 +35,7 @@ function needsValidation(mapping: MappingResult): boolean {
 	);
 }
 
-/** LLM decides which catalog names are redundant; filtering itself stays deterministic. */
+/** LLM decides which list indices are redundant; filtering itself stays deterministic. */
 const validatorResponseSchema: Schema = {
 	type: Type.OBJECT,
 	properties: {
@@ -44,10 +44,10 @@ const validatorResponseSchema: Schema = {
 			items: {
 				type: Type.OBJECT,
 				properties: {
-					catalogName: { type: Type.STRING },
+					index: { type: Type.INTEGER, description: 'Index (0-based) of the redundant study in the list' },
 					reason: { type: Type.STRING, description: 'Why this study is redundant' }
 				},
-				required: ['catalogName']
+				required: ['index']
 			}
 		}
 	},
@@ -61,7 +61,10 @@ export async function validateMapping(
 	if (!needsValidation(mapping)) return { mapping };
 	onProcess(new StatusChatEvent('Validando estudios antes de presupuestar'));
 
-	const studyList = mapping.matched.map((s) => `- ${s.catalogName}`).join('\n');
+	// Indices, not names: the model doesn't reliably echo catalog names back
+	// verbatim (paraphrasing breaks exact/substring matching), but it can
+	// reliably point at a position in a list it was just given.
+	const studyList = mapping.matched.map((s, i) => `${i}. ${s.catalogName}`).join('\n');
 	const stream = await getGeminiClient().models.generateContentStream({
 		model: VALIDATOR_MODEL.name,
 		contents: [{ role: 'user', parts: [{ text: studyList }] }],
@@ -88,31 +91,17 @@ export async function validateMapping(
 	const cost = VALIDATOR_MODEL.getCost(usage);
 
 	if (!text) return { mapping, usage, cost };
-	const { toRemove } = JSON.parse(text) as { toRemove: { catalogName: string }[] };
-
-	// Match toRemove names against mapping.matched by substring (not exact
-	// equality) since the model doesn't always quote the catalog name
-	// verbatim. Remove one matched entry per toRemove item — tracked by
-	// index, not catalogId — so a legitimate double order of the same study
-	// (2 flagged, 1 removed) collapses to one instead of losing both.
-	const remaining = [...mapping.matched];
-	for (const { catalogName } of toRemove) {
-		const index = resolveToMatchedIndex(catalogName, remaining);
-		if (index !== -1) remaining.splice(index, 1);
-	}
+	const { toRemove } = JSON.parse(text) as { toRemove: { index: number }[] };
+	const removeIndices = new Set(
+		toRemove.map((s) => s.index).filter((i) => i >= 0 && i < mapping.matched.length)
+	);
 
 	return {
-		mapping: { ...mapping, matched: remaining },
+		mapping: {
+			...mapping,
+			matched: mapping.matched.filter((_, i) => !removeIndices.has(i))
+		},
 		usage,
 		cost
 	};
-}
-
-function resolveToMatchedIndex(catalogName: string, matched: MappedStudy[]): number {
-	const normalized = normalize(catalogName);
-	const exactIndex = matched.findIndex((s) => normalize(s.catalogName) === normalized);
-	if (exactIndex !== -1) return exactIndex;
-	return matched.findIndex(
-		(s) => normalize(s.catalogName).includes(normalized) || normalized.includes(normalize(s.catalogName))
-	);
 }

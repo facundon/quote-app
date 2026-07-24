@@ -10,13 +10,7 @@
  *    validation pass like the old per-item grounded-search loop.
  */
 
-import {
-	Type,
-	type FunctionDeclaration,
-	type Content,
-	type Schema,
-	type GenerateContentResponse
-} from '@google/genai';
+import { Type, type Content, type Schema, type GenerateContentResponse } from '@google/genai';
 import type {
 	ExtractedStudy,
 	MappedStudy,
@@ -24,9 +18,9 @@ import type {
 	AgentResult,
 	LLMMappingResponse,
 	LLMMapping,
-	TokenUsage,
 	MappingConfidence
 } from './types';
+import type { TokenUsage } from '$lib/ai-tools/types';
 import {
 	type CatalogStudy,
 	getAllStudies,
@@ -39,29 +33,15 @@ import { buildMappingPrompt } from '../prompts/mapping';
 import { MODEL_CONFIG } from '$lib/server/chat/workflow/models';
 import { ThoughtChatEvent, type ChatEvent } from '$lib/chat/events';
 import { getGeminiClient } from '$lib/server/chat/gemini';
+import { getCatalogDeclarationTool } from '$lib/ai-tools/tools';
 
 const MAPPING_MODEL = MODEL_CONFIG.mapping;
 const PARSER_MODEL = MODEL_CONFIG.parser;
-
-/** Max get_catalog round trips before giving up and forcing a final answer. */
-const MAX_TOOL_ITERATIONS = 3;
 
 export interface MappingWorkflowResult extends AgentResult<MappingResult> {
 	usage?: TokenUsage;
 	cost?: number;
 }
-
-/** Tool the model can call to fetch the full study catalog on demand. */
-const getCatalogDeclaration: FunctionDeclaration = {
-	name: 'get_catalog',
-	description:
-		'Returns the full lab study catalog, grouped by category, with prices. Call this before proposing any mapping.',
-	parameters: {
-		type: Type.OBJECT,
-		properties: {},
-		required: []
-	}
-};
 
 export const mappingResponseSchema: Schema = {
 	type: Type.OBJECT,
@@ -187,13 +167,13 @@ async function llmMapRemaining(
 	let usage = emptyUsage();
 	const systemInstruction = buildMappingPrompt();
 
-	for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+	for (let i = 0; i < 3; i++) {
 		const stream = await getGeminiClient().models.generateContentStream({
 			model: MAPPING_MODEL.name,
 			contents,
 			config: {
 				...MAPPING_MODEL,
-				tools: [{ functionDeclarations: [getCatalogDeclaration] }, { googleSearch: {} }],
+				tools: [{ functionDeclarations: [getCatalogDeclarationTool.schema] }, { googleSearch: {} }],
 				toolConfig: { includeServerSideToolInvocations: true },
 				systemInstruction
 			}

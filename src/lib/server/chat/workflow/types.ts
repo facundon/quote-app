@@ -156,12 +156,6 @@ export interface LLMMappingResponse {
 	mappings: LLMMapping[];
 }
 
-/** Token usage tracking for LLM calls. */
-export interface TokenUsage {
-	inputTokens: number;
-	outputTokens: number;
-}
-
 /**
  * Final pipeline response to be sent to the client.
  */
@@ -180,16 +174,4 @@ export interface PipelineResponse {
 		/** LLM cost converted to ARS at dólar blue venta */
 		costArs?: number;
 	};
-}
-export interface ChatMessage {
-	role: 'user' | 'assistant';
-	content?: string;
-	/** Base64-encoded image data (without data URL prefix) */
-	image?: string;
-	/** MIME type of the image */
-	imageType?: string;
-	/** Base64-encoded audio data (without data URL prefix) */
-	audio?: string;
-	/** MIME type of the audio */
-	audioType?: string;
 }

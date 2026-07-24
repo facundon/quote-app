@@ -10,6 +10,13 @@
 		'audio/mp4'
 	] as const;
 
+	function getSupportedMimeType(recordedMimeType: string): string {
+		if (recordedMimeType.includes('opus')) {
+			return 'audio/opus';
+		}
+		return recordedMimeType.split(';')[0];
+	}
+
 	function pickAudioMimeType(): string {
 		for (const type of AUDIO_MIME_CANDIDATES) {
 			if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(type)) {
@@ -77,7 +84,7 @@
 		};
 
 		mediaRecorder.onstop = async () => {
-			const type = mediaRecorder?.mimeType || mimeType || 'audio/webm';
+			const type = getSupportedMimeType(mediaRecorder?.mimeType || mimeType || 'audio/webm');
 			const blob = new Blob(recordedChunks, { type });
 			stopRecordingTracks();
 

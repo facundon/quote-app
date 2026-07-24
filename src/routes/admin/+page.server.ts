@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { category, study, discount, provider, invoice, instruction } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
+import { createStudy, deleteStudy, updateStudy } from '$lib/mutations/study.js';
 
 export async function load() {
 	const categories = await db.select().from(category);
@@ -96,7 +97,7 @@ export const actions = {
 			return fail(400, { error: 'Faltan campos requeridos.' });
 		}
 		try {
-			await db.insert(study).values({ name: String(name), category_id: Number(category_id) });
+			await createStudy(String(name), Number(category_id));
 			return { success: true };
 		} catch {
 			return fail(500, { error: 'Error al crear el estudio.' });
@@ -111,10 +112,7 @@ export const actions = {
 			return fail(400, { error: 'Faltan campos requeridos.' });
 		}
 		try {
-			await db
-				.update(study)
-				.set({ name: String(name), category_id: Number(category_id) })
-				.where(eq(study.id, Number(id)));
+			await updateStudy(String(name), Number(category_id), Number(id));
 			return { success: true };
 		} catch {
 			return fail(500, { error: 'Error al editar el estudio.' });
@@ -127,7 +125,7 @@ export const actions = {
 			return fail(400, { error: 'Falta el id.' });
 		}
 		try {
-			await db.delete(study).where(eq(study.id, Number(id)));
+			await deleteStudy(Number(id));
 			return { success: true };
 		} catch {
 			return fail(500, { error: 'Error al eliminar el estudio.' });
